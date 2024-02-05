@@ -1,2 +1,2 @@
-mkdisk fj jds
-fdisk ja ahah
+mkdisk -size=3000 -unit=K
+rmdisk -driveletter=A

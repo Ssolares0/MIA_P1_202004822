@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -14,22 +15,33 @@ func main() {
 	fmt.Println("**** BIENVENIDO PRY1 Sebastian Solares *****")
 	fmt.Println("********************")
 
-	Open_File()
+	send_console()
+	//Open_File()
 
 }
 
 func send_console() {
-	reader := bufio.NewReader(os.Stdin)
+	for {
+		reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("Ingresa un comando: ")
+		fmt.Print("Ingresa un comando: ")
 
-	comando, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("Error al leer la entrada:", err)
-		return
+		comando, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error al leer la entrada:", err)
+			return
+		}
+
+		// Eliminar espacios en blanco y nueva línea de la entrada
+		comando = strings.TrimSpace(comando)
+
+		if comando == "exit" {
+			fmt.Println("Entraste al comando 'exit'")
+		} else {
+			fmt.Println("Comando no reconocido:", comando)
+		}
+		Estructuras.Analyze(comando)
 	}
-
-	Estructuras.Analyze(comando)
 
 }
 func Open_File() {
