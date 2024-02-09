@@ -1,16 +1,19 @@
 package Estructuras
 
 type MBR struct {
-	MBR_SIZE int64
-	MBR_DATE [16]byte
-	MBR_ID   int64
-	//MBR_FIT  char[2]
+	MBR_SIZE int64    // 8
+	MBR_DATE [16]byte // 16
+	MBR_ID   int64    // 4
+	DSK_FIT  [1]byte  // 1
 
 }
 
-func NewMBR() {
-	var nmb MBR
-	nmb.MBR_SIZE = 1000
-	//nmb.MBR_DATE = '2020'
-	nmb.MBR_ID = 10
+func NewMBR() MBR {
+	return MBR{
+		MBR_SIZE: 0,
+		MBR_DATE: [16]byte{},
+		MBR_ID:   0,
+		DSK_FIT:  [1]byte{},
+	}
+
 }

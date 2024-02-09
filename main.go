@@ -36,9 +36,7 @@ func send_console() {
 		comando = strings.TrimSpace(comando)
 
 		if comando == "exit" {
-			fmt.Println("Entraste al comando 'exit'")
-		} else {
-			fmt.Println("Comando no reconocido:", comando)
+			break
 		}
 		Estructuras.Analyze(comando)
 	}
