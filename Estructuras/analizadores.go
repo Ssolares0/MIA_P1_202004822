@@ -46,6 +46,8 @@ func Analyze(command string) {
 
 	case "rmdisk":
 		Analyze_Rmdisk(token_[1:])
+	case "fdisk":
+		Analyze_Fdisk(token_[1:])
 
 	case "exit":
 		//flagExit = true
@@ -91,24 +93,28 @@ func Analyze_Mkdisk(list_tokens []string) {
 			fmt.Println("El size es: " + size)
 		case "-unit":
 			unit = tokens[1]
+			//pasar aminuscula
+			unit = strings.ToLower(unit)
 			fmt.Println("El unit es: " + unit)
 
 		case "-fit":
 			fit = tokens[1]
+			//pasar a minuscula
+			fit = strings.ToLower(fit)
 			fmt.Println("el fit es; " + fit)
 		}
-		if size_int == 0 {
 
-			fmt.Println("Faltan parametros obligatorios")
-			FlagObligatorio = false
+	}
+	if size_int == 0 {
 
-		}
+		fmt.Println("Faltan parametros obligatorios")
+		FlagObligatorio = false
 
 	}
 
 	if FlagObligatorio == true {
 		//creamos archivo
-		fmt.Println("creando disco")
+		fmt.Println("creando disco...")
 
 		CrearDisco(size_int, unit, fit)
 
@@ -147,7 +153,83 @@ func Analyze_Rmdisk(list_tokens []string) {
 
 	}
 }
+func Analyze_Fdisk(list_tokens []string) {
+	var FlagObligatorio bool = true
+	//variables del mkdisk
+	var size_int int
+	var size, fit, unit, drive, name, type_, delete, add string
+	//vamos a separar el valor igual
 
+	for x := 0; x < len(list_tokens); x++ {
+		tokens := strings.Split(list_tokens[x], "=")
+		switch tokens[0] {
+		case "-size":
+			size = tokens[1]
+			size_int, _ = strconv.Atoi(tokens[1])
+
+			fmt.Println("El size es: " + size)
+		case "-driveletter":
+			drive = tokens[1]
+			fmt.Println("El drive es: " + drive)
+
+		case "-name":
+			name = tokens[1]
+			fmt.Println("El name es: " + name)
+
+		case "-unit":
+			unit = tokens[1]
+			//pasar aminuscula
+			unit = strings.ToLower(unit)
+			fmt.Println("El unit es: " + unit)
+
+		case "-type":
+			type_ = tokens[1]
+			//pasar aminuscula
+			type_ = strings.ToLower(type_)
+			fmt.Println("El type es: " + type_)
+
+		case "-fit":
+			fit = tokens[1]
+			//pasar a minuscula
+			fit = strings.ToLower(fit)
+			fmt.Println("el fit es; " + fit)
+		case "-delete":
+			delete = tokens[1]
+			//pasar a minuscula
+			delete = strings.ToLower(delete)
+			fmt.Println("el delete es; " + delete)
+
+		case "-add":
+			add = tokens[1]
+			//pasar a minuscula
+			add = strings.ToLower(add)
+			fmt.Println("el add es; " + add)
+		}
+
+	}
+	if size_int == 0 || size_int < 0 {
+
+		fmt.Println("no se encontro el parametro -size o el valor es negativo")
+		FlagObligatorio = false
+
+	}
+	if drive == "" {
+		fmt.Println("no se encontro el parametro -driveletter")
+		FlagObligatorio = false
+	}
+	if name == "" {
+		fmt.Println("no se encontro el parametro -name")
+		FlagObligatorio = false
+	}
+
+	if FlagObligatorio == true {
+		// creamos la particion
+		fmt.Println("creando particion...")
+		CrearParticion(size_int, unit, fit, drive, name, type_, delete, add)
+
+	}
+
+}
 func Confirmacion(msg string) bool {
 	fmt.Println(msg + "(y/n)")
 	var respuesta string
@@ -170,10 +252,10 @@ func CrearDisco(size_int int, unit string, fit string) {
 	var size_bytes int64
 	var fit_mod string
 
-	if unit == "M" && size_int != 0 {
+	if unit == "m" && size_int != 0 {
 		size_bytes = int64(size_int * 1024 * 1024)
 
-	} else if unit == "K" && size_int != 0 {
+	} else if unit == "k" && size_int != 0 {
 		size_bytes = int64(size_int * 1024)
 
 	} else if unit == "" && size_int != 0 {
@@ -184,20 +266,20 @@ func CrearDisco(size_int int, unit string, fit string) {
 		return
 
 	}
-	if fit != "BF" && fit != "FF" && fit != "WF" {
+	if fit != "bf" && fit != "ff" && fit != "wf" {
 		fmt.Println("No SE ENCONTRO EL PARAMETRO -fit")
 		fit_mod = "F"
 
 	} else {
-		if fit == "BF" {
+		if fit == "bf" {
 			fit_mod = "B"
-		} else if fit == "FF" {
+		} else if fit == "ff" {
 			fit_mod = "F"
-		} else if fit == "WF" {
+		} else if fit == "wf" {
 			fit_mod = "W"
 		}
 	}
-	fmt.Println("el fit es : ", fit_mod)
+
 	//Si no existe el directorio Discos, entonces crearlo
 	if _, err := os.Stat("Discos"); os.IsNotExist(err) {
 		err = os.Mkdir("Discos", 0777)
@@ -240,9 +322,38 @@ func CrearDisco(size_int int, unit string, fit string) {
 
 	fitaux := []byte(fit_mod)
 
-	fmt.Println("fit: ", fitaux[0])
-
 	disk.DSK_FIT = [1]byte{fitaux[0]}
+
+	//ESCRIBIMOS EN LAS PARTICIONES
+	disk.MBR_PART1.PART_STATUS = [1]byte{'0'}
+	disk.MBR_PART2.PART_STATUS = [1]byte{'0'}
+	disk.MBR_PART3.PART_STATUS = [1]byte{'0'}
+	disk.MBR_PART4.PART_STATUS = [1]byte{'0'}
+
+	disk.MBR_PART1.PART_TYPE = [1]byte{'0'}
+	disk.MBR_PART2.PART_TYPE = [1]byte{'0'}
+	disk.MBR_PART3.PART_TYPE = [1]byte{'0'}
+	disk.MBR_PART4.PART_TYPE = [1]byte{'0'}
+
+	disk.MBR_PART1.PART_FIT = [1]byte{'0'}
+	disk.MBR_PART2.PART_FIT = [1]byte{'0'}
+	disk.MBR_PART3.PART_FIT = [1]byte{'0'}
+	disk.MBR_PART4.PART_FIT = [1]byte{'0'}
+
+	disk.MBR_PART1.PART_START = 0
+	disk.MBR_PART2.PART_START = 0
+	disk.MBR_PART3.PART_START = 0
+	disk.MBR_PART4.PART_START = 0
+
+	disk.MBR_PART1.PART_SIZE = 0
+	disk.MBR_PART2.PART_SIZE = 0
+	disk.MBR_PART3.PART_SIZE = 0
+	disk.MBR_PART4.PART_SIZE = 0
+
+	disk.MBR_PART1.PART_NAME = [16]byte{'0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
+	disk.MBR_PART2.PART_NAME = [16]byte{'0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
+	disk.MBR_PART3.PART_NAME = [16]byte{'0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
+	disk.MBR_PART4.PART_NAME = [16]byte{'0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
 
 	//llenamos el archivo en bytes
 	bufer := new(bytes.Buffer)
@@ -268,4 +379,9 @@ func CrearDisco(size_int int, unit string, fit string) {
 		return
 	}
 	fmt.Println("Disco", nameDisk, "creado con exito")
+}
+
+func CrearParticion(size_int int, unit string, fit string, drive string, name string, type_ string, delete string, add string) {
+	fmt.Println("Creando pARTICION...")
+
 }
