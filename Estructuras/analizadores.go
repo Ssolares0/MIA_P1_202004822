@@ -125,7 +125,7 @@ func Analyze_Rmdisk(list_tokens []string) {
 		//preguntamos si quiere borra el disco
 		if Confirmacion("Desea borrar el disco") {
 			fmt.Println("borrando disco")
-			nombreArchivo := "Discos/" + tokens[1] + ".dsk" // El nombre o ruta absoluta del archivo
+			nombreArchivo := "MIA/P1/" + tokens[1] + ".dsk" // El nombre o ruta absoluta del archivo
 			err := os.Remove(nombreArchivo)
 			if err != nil {
 				fmt.Printf("Error eliminando el disco: %v\n", err)
@@ -313,15 +313,15 @@ func CrearDisco(size_int int, unit string, fit string) {
 	}
 
 	//Si no existe el directorio Discos, entonces crearlo
-	if _, err := os.Stat("Discos"); os.IsNotExist(err) {
-		err = os.Mkdir("Discos", 0777)
+	if _, err := os.Stat("MIA/P1"); os.IsNotExist(err) {
+		err = os.Mkdir("MIA/P1", 0777)
 		if err != nil {
 			fmt.Println("Error al crear el directorio Discos: ", err)
 			return
 		}
 	}
 	//Contar la cantidad de discos para asignar el nombre
-	archivos, err := ioutil.ReadDir("Discos")
+	archivos, err := ioutil.ReadDir("MIA/P1")
 	if err != nil {
 		fmt.Println("Error al leer el directorio: ", err)
 		return
@@ -333,7 +333,7 @@ func CrearDisco(size_int int, unit string, fit string) {
 	nameDisk := string(letter[len(archivos)])
 
 	//crear el archivo binario
-	file, err := os.Create("Discos/" + nameDisk + ".dsk")
+	file, err := os.Create("MIA/P1/" + nameDisk + ".dsk")
 
 	if err != nil {
 		fmt.Println("error al crear el disco", err)
@@ -496,7 +496,7 @@ func Fdisk(size_int int, unit string, fit string, drive string, name string, typ
 	fmt.Println("add: ", add_int)
 
 	//Abrimos el disco
-	file, err := os.OpenFile("Discos/"+drive+".dsk", os.O_RDWR, 0777)
+	file, err := os.OpenFile("MIA/P1/"+drive+".dsk", os.O_RDWR, 0777)
 	if err != nil {
 		fmt.Println("Error al abrir el disco: ", err)
 		return
