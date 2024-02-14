@@ -43,7 +43,15 @@ func send_console() {
 
 }
 func Open_File() {
-	readFile, err := os.Open("entrada")
+
+	// pedimos la ruta del archivo
+	fmt.Println("Ingrese la ruta del archivo")
+	var ruta string
+	fmt.Scanln(&ruta)
+	fmt.Println("La ruta es:", ruta)
+	//Abrimos el archivo
+
+	readFile, err := os.Open(ruta)
 	if err != nil {
 		log.Fatal(err)
 	}

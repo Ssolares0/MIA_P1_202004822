@@ -1,2 +1,6 @@
 mkdisk -size=3000 -unit=K -fit=BF
+# esto es una prueba
+fdisk -size=300 -driveletter=A -name=Particion1
 rmdisk -driveletter=A
+
+mount -driveletter=A -name=Part1 
