@@ -51,6 +51,9 @@ func Analyze(command string) {
 	case "mount":
 		Analyze_Mount(token_[1:])
 
+	case "rep":
+		Analyze_Reportes(token_[1:])
+
 	case "exit":
 		//flagExit = true
 		fmt.Println("gracias por usar el programa")
@@ -104,7 +107,7 @@ func Analyze_Mkdisk(list_tokens []string) {
 		//creamos archivo
 		fmt.Println("creando disco...")
 
-		CrearDisco(size_int, unit, fit)
+		CreateNewDisk(size_int, unit, fit)
 
 	}
 
@@ -219,7 +222,7 @@ func Analyze_Fdisk(list_tokens []string) {
 	if FlagObligatorio == true {
 		// creamos la particion
 
-		Fdisk(size_int, unit, fit, drive, name, type_, delete, add, add_flag, delete_flag)
+		CreateFdisk(size_int, unit, fit, drive, name, type_, delete, add, add_flag, delete_flag)
 
 	}
 
@@ -279,7 +282,7 @@ func WriteInBytes() {
 	fmt.Println("jeje")
 }
 
-func CrearDisco(size_int int, unit string, fit string) {
+func CreateNewDisk(size_int int, unit string, fit string) {
 
 	var size_bytes int64
 	var fit_mod string
@@ -413,7 +416,7 @@ func CrearDisco(size_int int, unit string, fit string) {
 	fmt.Println("Disco", nameDisk, "creado con exito")
 }
 
-func Fdisk(size_int int, unit string, fit string, drive string, name string, type_ string, delete string, add string, add_flag bool, delete_flag bool) {
+func CreateFdisk(size_int int, unit string, fit string, drive string, name string, type_ string, delete string, add string, add_flag bool, delete_flag bool) {
 	fmt.Println("Creando pARTICION...")
 	var size_ebr int
 

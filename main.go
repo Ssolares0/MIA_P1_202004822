@@ -15,8 +15,8 @@ func main() {
 	fmt.Println("**** BIENVENIDO PRY1 Sebastian Solares *****")
 	fmt.Println("********************")
 
-	//send_console()
-	Open_File()
+	send_console()
+	//Open_File()
 
 }
 

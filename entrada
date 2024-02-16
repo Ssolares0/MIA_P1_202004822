@@ -10,3 +10,5 @@ fdisk -type=E -driveletter=A -unit=K -name=Particion2 -size=300
 #Crea una partición lógica con el mejor ajuste, llamada Partición 3,
 #de 1 Mb en el disco A
 fdisk -size=1 -type=L -unit=M -fit=bf -driveletter=A -name=Particion3
+
+rep -id=A122 -path=Reportes/report1.png -name=disk
