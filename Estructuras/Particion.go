@@ -13,10 +13,10 @@ type PARTITIONS struct {
 func NewPartition() PARTITIONS {
 	return PARTITIONS{
 		PART_SIZE:   -1,
-		PART_NAME:   [16]byte{'~'},
+		PART_NAME:   [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'},
 		PART_STATUS: [1]byte{'0'},
 		PART_TYPE:   [1]byte{'P'},
-		PART_FIT:    [1]byte{'F'},
+		PART_FIT:    [1]byte{'W'},
 		PART_START:  -1,
 	}
 }

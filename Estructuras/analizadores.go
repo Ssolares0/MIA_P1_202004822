@@ -415,15 +415,18 @@ func CrearDisco(size_int int, unit string, fit string) {
 
 func Fdisk(size_int int, unit string, fit string, drive string, name string, type_ string, delete string, add string, add_flag bool, delete_flag bool) {
 	fmt.Println("Creando pARTICION...")
-	fmt.Println("addbool" + strconv.FormatBool(add_flag))
+	var size_ebr int
+
 	var size_bytes int64
 	var fit_mod string
 
 	if unit == "m" && size_int != 0 {
 		size_bytes = int64(size_int * 1024 * 1024)
+		unit = "M"
 
 	} else if unit == "k" && size_int != 0 {
 		size_bytes = int64(size_int * 1024)
+		unit = "K"
 
 	} else if unit == "" && size_int != 0 {
 		size_bytes = int64(size_int * 1024)
@@ -510,62 +513,62 @@ func Fdisk(size_int int, unit string, fit string, drive string, name string, typ
 		fmt.Println("Error al leer el MBR: ", err)
 		return
 	}
-	if delete == "" || add_int == 0 {
+	if delete == "" && add_int == 0 {
 		//no se esta haciendo ninguna operacion, entonces creamos una
-		TempDesplazamiento := 1 + binary.Size(MBR{})
+		TempD := 1 + binary.Size(MBR{})
 		var PartExt PARTITIONS
 		indicePart := 0
 		var nameRepeat, verificarEspacio bool
 		if disk.MBR_PART1.PART_SIZE != 0 {
-			if disk.MBR_PART1.PART_TYPE == [1]byte{'e'} {
+			if disk.MBR_PART1.PART_TYPE == [1]byte{'E'} {
 				PartExt = disk.MBR_PART1
 
 			}
 			if strings.Contains(string(disk.MBR_PART1.PART_NAME[:]), name) {
 				nameRepeat = true
 			}
-			TempDesplazamiento += int(disk.MBR_PART1.PART_SIZE) + 1
+			TempD += int(disk.MBR_PART1.PART_SIZE) + 1
 
 		} else {
 			verificarEspacio = true
 			indicePart = 1
 		}
 		if disk.MBR_PART2.PART_SIZE != 0 {
-			if disk.MBR_PART2.PART_TYPE == [1]byte{'e'} {
+			if disk.MBR_PART2.PART_TYPE == [1]byte{'E'} {
 				PartExt = disk.MBR_PART2
 
 			}
 			if strings.Contains(string(disk.MBR_PART2.PART_NAME[:]), name) {
 				nameRepeat = true
 			}
-			TempDesplazamiento += int(disk.MBR_PART2.PART_SIZE) + 1
+			TempD += int(disk.MBR_PART2.PART_SIZE) + 1
 
 		} else if !verificarEspacio {
 			verificarEspacio = true
 			indicePart = 2
 		}
 		if disk.MBR_PART3.PART_SIZE != 0 {
-			if disk.MBR_PART3.PART_TYPE == [1]byte{'e'} {
+			if disk.MBR_PART3.PART_TYPE == [1]byte{'E'} {
 				PartExt = disk.MBR_PART3
 
 			}
 			if strings.Contains(string(disk.MBR_PART3.PART_NAME[:]), name) {
 				nameRepeat = true
 			}
-			TempDesplazamiento += int(disk.MBR_PART3.PART_SIZE) + 1
+			TempD += int(disk.MBR_PART3.PART_SIZE) + 1
 		} else if !verificarEspacio {
 			verificarEspacio = true
 			indicePart = 3
 		}
 		if disk.MBR_PART4.PART_SIZE != 0 {
-			if disk.MBR_PART4.PART_TYPE == [1]byte{'e'} {
+			if disk.MBR_PART4.PART_TYPE == [1]byte{'E'} {
 				PartExt = disk.MBR_PART4
 
 			}
 			if strings.Contains(string(disk.MBR_PART4.PART_NAME[:]), name) {
 				nameRepeat = true
 			}
-			TempDesplazamiento += int(disk.MBR_PART4.PART_SIZE) + 1
+			TempD += int(disk.MBR_PART4.PART_SIZE) + 1
 
 		} else if !verificarEspacio {
 			verificarEspacio = true
@@ -583,7 +586,7 @@ func Fdisk(size_int int, unit string, fit string, drive string, name string, typ
 			return
 		}
 		//validamos que no exista alguna particion extendida
-		if type_ == "e" && PartExt.PART_TYPE == [1]byte{'e'} {
+		if type_ == "E" && PartExt.PART_TYPE == [1]byte{'e'} {
 			fmt.Println("La particion extendida ya existe")
 			return
 		}
@@ -593,7 +596,7 @@ func Fdisk(size_int int, unit string, fit string, drive string, name string, typ
 			newPartition.PART_STATUS = [1]byte{'1'}
 			newPartition.PART_TYPE = [1]byte{type_[0]}
 			newPartition.PART_FIT = [1]byte{fit_mod[0]}
-			newPartition.PART_START = int64(TempDesplazamiento)
+			newPartition.PART_START = int64(TempD)
 
 			newPartition.PART_SIZE = size_bytes
 			copy(newPartition.PART_NAME[:], name)
@@ -602,7 +605,7 @@ func Fdisk(size_int int, unit string, fit string, drive string, name string, typ
 			var sizembr int64
 			sizembr = disk.MBR_SIZE
 
-			if int64(TempDesplazamiento)+newPartition.PART_SIZE+1 > sizembr {
+			if int64(TempD)+newPartition.PART_SIZE+1 > sizembr {
 				fmt.Println("No hay espacio suficiente para crear la particion")
 				return
 			}
@@ -622,7 +625,64 @@ func Fdisk(size_int int, unit string, fit string, drive string, name string, typ
 			binary.Write(file, binary.LittleEndian, &disk)
 			file.Close()
 
-			fmt.Println("Particion creada con exito")
+			if type_ == "P" {
+				fmt.Println("Se creo la particion primaria con exito!!!")
+
+			} else {
+				fmt.Println("Se creo la particion extendida con exito!!!")
+			}
+
+		} else {
+			fmt.Println("Creando particion logica....")
+
+			if PartExt.PART_TYPE != [1]byte{'E'} {
+				fmt.Println("No existe una particion extendida")
+				return
+			}
+			//creamos la particion logica
+			ebr := NewEBR()
+			TempD = int(PartExt.PART_START)
+			//leemos ebrs en un for
+			for {
+				file.Seek(int64(TempD), 0)
+				err = binary.Read(file, binary.LittleEndian, &ebr)
+				if ebr.EBR_SIZE != 0 {
+					if strings.Contains(string(ebr.EBR_NAME[:]), name) {
+						fmt.Println("Ya existe una particion logica con ese nombre")
+						return
+					}
+					TempD = int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
+				}
+				if ebr.EBR_NEXT == 0 {
+					break
+				}
+			}
+			//creamos un nuevo ebr
+
+			if unit == "K" {
+				size_ebr = size_int * 1024
+			} else if unit == "M" {
+				size_ebr = size_int * 1024 * 1024
+			} else {
+				size_ebr = size_int
+			}
+			if int64(TempD)+int64(size_ebr)+1 > PartExt.PART_START+PartExt.PART_SIZE {
+				fmt.Println("No hay espacio suficiente para crear la particion")
+				return
+			}
+			ebrNEw := NewEBR()
+			ebrNEw.EBR_MOUNT = [1]byte{'1'}
+			ebrNEw.EBR_FIT = [1]byte{fit_mod[0]}
+			ebrNEw.EBR_START = int64(TempD) + 1 + int64(binary.Size(EBR{}))
+			ebrNEw.EBR_SIZE = int64(size_ebr)
+			ebrNEw.EBR_NEXT = int64(TempD) + 1 + int64(binary.Size(EBR{})) + ebrNEw.EBR_SIZE
+			copy(ebrNEw.EBR_NAME[:], name)
+			//escribimos el ebr
+			file.Seek(int64(TempD), 0)
+			binary.Write(file, binary.LittleEndian, &ebrNEw)
+			file.Close()
+			fmt.Println("Se creo la particion logica con exito!!!")
+			return
 
 		}
 	}

@@ -16,7 +16,7 @@ func NewMBR() MBR {
 		MBR_SIZE:  0,
 		MBR_DATE:  [16]byte{},
 		MBR_ID:    0,
-		DSK_FIT:   [1]byte{},
+		DSK_FIT:   [1]byte{'W'},
 		MBR_PART1: NewPartition(),
 		MBR_PART2: NewPartition(),
 		MBR_PART3: NewPartition(),

@@ -1,18 +1,21 @@
 package Estructuras
 
 type EBR struct {
-	EBR_STATUS byte
-	EBR_FIT    byte
-	EBR_START  byte
-	EBR_SIZE   int64
-	EBR_NEXT   int64
-	EBR_NAME   [16]byte
+	EBR_MOUNT [1]byte
+	EBR_FIT   [1]byte
+	EBR_START int64
+	EBR_SIZE  int64
+	EBR_NEXT  int64
+	EBR_NAME  [16]byte
 }
 
-func NewEBR() {
-	var ebr EBR
-	ebr.EBR_STATUS = '0'
-	ebr.EBR_SIZE = 0
-	ebr.EBR_NEXT = -1
-
+func NewEBR() EBR {
+	return EBR{
+		EBR_MOUNT: [1]byte{0},
+		EBR_FIT:   [1]byte{'W'},
+		EBR_START: -1,
+		EBR_SIZE:  0,
+		EBR_NEXT:  -1,
+		EBR_NAME:  [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'},
+	}
 }
