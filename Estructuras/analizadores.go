@@ -54,6 +54,10 @@ func Analyze(command string) {
 	case "rep":
 		Analyze_Reportes(token_[1:])
 
+	case "pause":
+		fmt.Println("Presione enter para continuar")
+		fmt.Scanln()
+
 	case "exit":
 		//flagExit = true
 		fmt.Println("gracias por usar el programa")
@@ -161,39 +165,34 @@ func Analyze_Fdisk(list_tokens []string) {
 		switch tokens[0] {
 		case "-size":
 			size = tokens[1]
-			size_int, _ = strconv.Atoi(tokens[1])
+			size_int, _ = strconv.Atoi(size)
 
-			fmt.Println("El size es: " + size)
 		case "-driveletter":
 			drive = tokens[1]
-			fmt.Println("El drive es: " + drive)
 
 		case "-name":
 			name = tokens[1]
-			fmt.Println("El name es: " + name)
 
 		case "-unit":
 			unit = tokens[1]
 			//pasar aminuscula
 			unit = strings.ToLower(unit)
-			fmt.Println("El unit es: " + unit)
 
 		case "-type":
 			type_ = tokens[1]
 			//pasar aminuscula
 			type_ = strings.ToLower(type_)
-			fmt.Println("El type es: " + type_)
 
 		case "-fit":
 			fit = tokens[1]
 			//pasar a minuscula
 			fit = strings.ToLower(fit)
-			fmt.Println("el fit es; " + fit)
+
 		case "-delete":
 			delete = tokens[1]
 			//pasar a minuscula
 			delete = strings.ToLower(delete)
-			fmt.Println("el delete es; " + delete)
+
 			delete_flag = true
 
 		case "-add":
@@ -418,7 +417,6 @@ func CreateNewDisk(size_int int, unit string, fit string) {
 
 func CreateFdisk(size_int int, unit string, fit string, drive string, name string, type_ string, delete string, add string, add_flag bool, delete_flag bool) {
 	fmt.Println("Creando pARTICION...")
-	var size_ebr int
 
 	var size_bytes int64
 	var fit_mod string
@@ -589,7 +587,7 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 			return
 		}
 		//validamos que no exista alguna particion extendida
-		if type_ == "E" && PartExt.PART_TYPE == [1]byte{'e'} {
+		if type_ == "E" && PartExt.PART_TYPE == [1]byte{'E'} {
 			fmt.Println("La particion extendida ya existe")
 			return
 		}
@@ -604,11 +602,7 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 			newPartition.PART_SIZE = size_bytes
 			copy(newPartition.PART_NAME[:], name)
 
-			// se verifica que el tamaño de la particion no sea mayor al espacio libre
-			var sizembr int64
-			sizembr = disk.MBR_SIZE
-
-			if int64(TempD)+newPartition.PART_SIZE+1 > sizembr {
+			if int64(TempD)+newPartition.PART_SIZE+1 > disk.MBR_SIZE {
 				fmt.Println("No hay espacio suficiente para crear la particion")
 				return
 			}
@@ -648,7 +642,7 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 			//leemos ebrs en un for
 			for {
 				file.Seek(int64(TempD), 0)
-				err = binary.Read(file, binary.LittleEndian, &ebr)
+				binary.Read(file, binary.LittleEndian, &ebr)
 				if ebr.EBR_SIZE != 0 {
 					if strings.Contains(string(ebr.EBR_NAME[:]), name) {
 						fmt.Println("Ya existe una particion logica con ese nombre")
@@ -661,7 +655,7 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 				}
 			}
 			//creamos un nuevo ebr
-
+			var size_ebr int
 			if unit == "K" {
 				size_ebr = size_int * 1024
 			} else if unit == "M" {
@@ -669,6 +663,8 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 			} else {
 				size_ebr = size_int
 			}
+			fmt.Println("el size de la particion logica es: ", size_ebr)
+			fmt.Println("el tamano de la extendida es", (PartExt.PART_START + PartExt.PART_SIZE))
 			if int64(TempD)+int64(size_ebr)+1 > PartExt.PART_START+PartExt.PART_SIZE {
 				fmt.Println("No hay espacio suficiente para crear la particion")
 				return

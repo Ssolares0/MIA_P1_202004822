@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -62,6 +63,9 @@ func Analyze_Reportes(list_tokens []string) {
 		//analizamos el nombre
 		if name == "disk" {
 			ReporteDisk(name, path, id)
+		} else if name == "mbr" {
+
+			ReporteMBR()
 		} else {
 			fmt.Println("Error: El nombre del reporte es incorrecto")
 		}
@@ -69,6 +73,67 @@ func Analyze_Reportes(list_tokens []string) {
 
 	//ReporteDisk(name, path, id)
 
+}
+
+func ReporteMBR() {
+	//Abrir el disco A
+	archivo, err := os.Open("MIA/P1/" + "A" + ".dsk")
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+	defer archivo.Close()
+	disk := NewMBR()
+	archivo.Seek(int64(0), 0)
+	err = binary.Read(archivo, binary.LittleEndian, &disk)
+	if err != nil {
+		fmt.Println("Error al leer el MBR del disco: ", err)
+		return
+	}
+	tamano := strconv.Itoa(int(disk.MBR_SIZE))
+	//LEEMOS LOS DATOS DEL MBR Y LOS PONEMS EN GRAPHVIZ
+
+	dot := "digraph { graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"2\", splines=\"ortho\"];"
+	dot += "node [shape=plain]"
+	dot += "rankdir=LR;"
+
+	dot += "Foo [label=<"
+	dot += "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">"
+	dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Reporte del MBR</td></tr>"
+	dot += "<tr><td>Tamano_MBR</td><td>"
+	dot += tamano
+	dot += "</td></tr>"
+	dot += "<tr><td>Fecha_CreacionMBR</td><td>"
+	dot += string(disk.MBR_DATE[:])
+	dot += "</td></tr>"
+	dot += "<tr><td>Signature MBR</td><td>"
+	dot += strconv.Itoa(int(disk.MBR_ID))
+	dot += "</td></tr>"
+	dot += "</table>>];"
+	dot += "}"
+
+	//Crear el archivo .dot
+	dotName := "Reportes/ReporteMBR.dot"
+	archivoDot, err := os.Create(dotName)
+	if err != nil {
+		fmt.Println("Error al crear el archivo .dot: ", err)
+		return
+	}
+	defer archivoDot.Close()
+	_, err = archivoDot.WriteString(dot)
+	if err != nil {
+		fmt.Println("Error al escribir el archivo .dot: ", err)
+		return
+	}
+	//Generar la imagen
+	cmd := exec.Command("dot", "-T", "png", dotName, "-o", "Reportes/ReporteMBR.png")
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error al generar la imagen: ", err)
+		return
+	}
+
+	fmt.Println("Reporte generado con exito")
 }
 
 func ReporteDisk(name string, path string, id string) {
@@ -111,7 +176,7 @@ func ReporteDisk(name string, path string, id string) {
 	if disk.MBR_PART1.PART_SIZE != 0 {
 		libre -= int(disk.MBR_PART1.PART_SIZE)
 		Dot += "|"
-		if disk.MBR_PART1.PART_TYPE == [1]byte{'p'} {
+		if disk.MBR_PART1.PART_TYPE == [1]byte{'P'} {
 			Dot += "Primaria"
 			porcentaje := (float64(disk.MBR_PART1.PART_SIZE) * float64(100)) / float64(sizeMBR)
 			Dot += "\\n" + fmt.Sprintf("%.2f", porcentaje) + "%\\n"
@@ -167,7 +232,7 @@ func ReporteDisk(name string, path string, id string) {
 	if disk.MBR_PART2.PART_SIZE != 0 {
 		libre -= int(disk.MBR_PART2.PART_SIZE)
 		Dot += "|"
-		if disk.MBR_PART2.PART_TYPE == [1]byte{'p'} {
+		if disk.MBR_PART2.PART_TYPE == [1]byte{'P'} {
 			Dot += "Primaria"
 			porcentaje := (float64(disk.MBR_PART2.PART_SIZE) * float64(100)) / float64(sizeMBR)
 			Dot += "\\n" + fmt.Sprintf("%.2f", porcentaje) + "%\\n"
@@ -223,7 +288,7 @@ func ReporteDisk(name string, path string, id string) {
 	if disk.MBR_PART3.PART_SIZE != 0 {
 		libre -= int(disk.MBR_PART3.PART_SIZE)
 		Dot += "|"
-		if disk.MBR_PART3.PART_TYPE == [1]byte{'p'} {
+		if disk.MBR_PART3.PART_TYPE == [1]byte{'P'} {
 			Dot += "Primaria"
 			porcentaje := (float64(disk.MBR_PART3.PART_SIZE) * float64(100)) / float64(sizeMBR)
 			Dot += "\\n" + fmt.Sprintf("%.2f", porcentaje) + "%\\n"
@@ -279,7 +344,7 @@ func ReporteDisk(name string, path string, id string) {
 	if disk.MBR_PART4.PART_SIZE != 0 {
 		libre -= int(disk.MBR_PART4.PART_SIZE)
 		Dot += "|"
-		if disk.MBR_PART4.PART_TYPE == [1]byte{'p'} {
+		if disk.MBR_PART4.PART_TYPE == [1]byte{'P'} {
 			Dot += "Primaria"
 			porcentaje := (float64(disk.MBR_PART4.PART_SIZE) * float64(100)) / float64(sizeMBR)
 			Dot += "\\n" + fmt.Sprintf("%.2f", porcentaje) + "%\\n"

@@ -1,2 +1,2 @@
-digraph grid {bgcolor="antiquewhite" fontname="Comic Sans MS " label=" Reporte Disco"Alayout=dot labelloc = "t"edge [weigth=1000 style=dashed color=red4 dir = "both" arrowtail="open" arrowhead="open"]node[shape=record, color=black]a0[label="MBR|Libre\n100.00%\n"];
+digraph grid {bgcolor="antiquewhite" fontname="Comic Sans MS " label=" Reporte Disco"Alayout=dot labelloc = "t"edge [weigth=1000 style=dashed color=red4 dir = "both" arrowtail="open" arrowhead="open"]node[shape=record, color=black]a0[label="MBR|Primaria\n6.00%\n|{Extendida|Libre\n6.00%\n}|Primaria\n6.00%\n|Libre\n82.00%\n"];
 }
