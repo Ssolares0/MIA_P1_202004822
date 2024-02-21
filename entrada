@@ -3,13 +3,13 @@ mkdisk -size=5000 -unit=K -fit=BF
 
 #Crea una partición primaria llamada Particion1 de 300 kb
 #con el peor ajuste en el disco A.dsk
-fdisk -size=300 -driveletter=A -name=Particion1
+fdisk -size=1000 -driveletter=A -name=Particion1
 #Crea una partición extendida dentro del disco A.dsk de 300 kb
 #Tiene el peor ajuste
-fdisk -type=E -driveletter=A -unit=K -name=Particion2 -size=300
+fdisk -type=E -driveletter=A -unit=K -name=Particion2 -size=600
 #Crea una partición lógica con el mejor ajuste, llamada Partición 3,
 #de 1 Mb en el disco A
-fdisk -size=400 -type=L -unit=K -fit=bf -driveletter=A -name=Particion3
+fdisk -size=300 -type=L -unit=K -fit=bf -driveletter=A -name=Particion3
 
 rep -id=A122 -path=Reportes/report1.png -name=disk
 

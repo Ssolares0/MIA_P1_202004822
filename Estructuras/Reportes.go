@@ -109,6 +109,71 @@ func ReporteMBR() {
 	dot += "<tr><td>Signature MBR</td><td>"
 	dot += strconv.Itoa(int(disk.MBR_ID))
 	dot += "</td></tr>"
+	dot += "<tr><td>Fit MBR</td><td>"
+	dot += strconv.Itoa(int(disk.DSK_FIT[0]))
+	dot += "</td></tr>"
+
+	if disk.MBR_PART1.PART_SIZE != 0 {
+		dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Particion 1</td></tr>"
+		dot += "<tr><td>Nombre</td><td>"
+		dot += string(disk.MBR_PART1.PART_NAME[:])
+		dot += "</td></tr>"
+		dot += "<tr><td>Tipo</td><td>"
+		dot += string(disk.MBR_PART1.PART_TYPE[:])
+		dot += "</td></tr>"
+		dot += "<tr><td>Inicio</td><td>"
+		dot += strconv.Itoa(int(disk.MBR_PART1.PART_START))
+		dot += "</td></tr>"
+		dot += "<tr><td>Tamano</td><td>"
+		dot += strconv.Itoa(int(disk.MBR_PART1.PART_SIZE))
+		dot += "</td></tr>"
+	}
+	if disk.MBR_PART2.PART_SIZE != 0 {
+		dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Particion 2</td></tr>"
+		dot += "<tr><td>Nombre</td><td>"
+		dot += string(disk.MBR_PART2.PART_NAME[:])
+		dot += "</td></tr>"
+		dot += "<tr><td>Tipo</td><td>"
+		dot += string(disk.MBR_PART2.PART_TYPE[:])
+		dot += "</td></tr>"
+		dot += "<tr><td>Inicio</td><td>"
+		dot += strconv.Itoa(int(disk.MBR_PART2.PART_START))
+		dot += "</td></tr>"
+		dot += "<tr><td>Tamano</td><td>"
+		dot += strconv.Itoa(int(disk.MBR_PART2.PART_SIZE))
+		dot += "</td></tr>"
+	}
+	if disk.MBR_PART3.PART_SIZE != 0 {
+		dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Particion 3</td></tr>"
+		dot += "<tr><td>Nombre</td><td>"
+		dot += string(disk.MBR_PART3.PART_NAME[:])
+		dot += "</td></tr>"
+		dot += "<tr><td>Tipo</td><td>"
+		dot += string(disk.MBR_PART3.PART_TYPE[:])
+		dot += "</td></tr>"
+		dot += "<tr><td>Inicio</td><td>"
+		dot += strconv.Itoa(int(disk.MBR_PART3.PART_START))
+		dot += "</td></tr>"
+		dot += "<tr><td>Tamano</td><td>"
+		dot += strconv.Itoa(int(disk.MBR_PART3.PART_SIZE))
+		dot += "</td></tr>"
+	}
+	if disk.MBR_PART4.PART_SIZE != 0 {
+		dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Particion 4</td></tr>"
+		dot += "<tr><td>Nombre</td><td>"
+		dot += string(disk.MBR_PART4.PART_NAME[:])
+		dot += "</td></tr>"
+		dot += "<tr><td>Tipo</td><td>"
+		dot += string(disk.MBR_PART4.PART_TYPE[:])
+		dot += "</td></tr>"
+		dot += "<tr><td>Inicio</td><td>"
+		dot += strconv.Itoa(int(disk.MBR_PART4.PART_START))
+		dot += "</td></tr>"
+		dot += "<tr><td>Tamano</td><td>"
+		dot += strconv.Itoa(int(disk.MBR_PART4.PART_SIZE))
+		dot += "</td></tr>"
+	}
+
 	dot += "</table>>];"
 	dot += "}"
 
