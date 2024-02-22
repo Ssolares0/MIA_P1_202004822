@@ -63,6 +63,7 @@ func Analyze_Reportes(list_tokens []string) {
 		//analizamos el nombre
 		if name == "disk" {
 			ReporteDisk(name, path, id)
+			ReporteGraphviz()
 		} else if name == "mbr" {
 
 			ReporteMBR()
@@ -483,6 +484,65 @@ func ReporteDisk(name string, path string, id string) {
 	}
 	//Generar la imagen
 	cmd := exec.Command("dot", "-T", "pdf", DotName, "-o", "Reportes/ReporteDisk.pdf")
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error al generar la imagen: ", err)
+		return
+	}
+
+	fmt.Println("Reporte generado con exito")
+
+}
+
+func ReporteGraphviz() {
+	//Abrir el disco A
+	archivo, err := os.Open("MIA/P1/" + "A" + ".dsk")
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+	defer archivo.Close()
+	disk := NewMBR()
+	archivo.Seek(int64(0), 0)
+	err = binary.Read(archivo, binary.LittleEndian, &disk)
+	if err != nil {
+		fmt.Println("Error al leer el MBR del disco: ", err)
+		return
+	}
+
+	Dot := "digraph grid {bgcolor=\"antiquewhite\" fontname=\"Comic Sans MS \" label=\" Reporte Disco\"" + "layout=dot "
+	Dot += "labelloc = \"t\"edge [weigth=1000 style=dashed color=red4 dir = \"both\" arrowtail=\"open\" arrowhead=\"open\"]"
+	Dot += "node[shape=record, color=black]a0[label=\"MBR"
+
+	if disk.MBR_PART1.PART_SIZE != 0 {
+		Dot += "|Particion 1"
+	}
+	if disk.MBR_PART2.PART_SIZE != 0 {
+		Dot += "|Particion 2"
+	}
+	if disk.MBR_PART3.PART_SIZE != 0 {
+		Dot += "|Particion 3"
+	}
+	if disk.MBR_PART4.PART_SIZE != 0 {
+		Dot += "|Particion 4"
+	}
+	Dot += "\"];\n}"
+
+	//Crear el archivo .dot
+	DotName := "Reportes/ReporteGraphviz.dot"
+	archivoDot, err := os.Create(DotName)
+	if err != nil {
+		fmt.Println("Error al crear el archivo .dot: ", err)
+		return
+	}
+	defer archivoDot.Close()
+	_, err = archivoDot.WriteString(Dot)
+	if err != nil {
+		fmt.Println("Error al escribir el archivo .dot: ", err)
+		return
+	}
+	//Generar la imagen
+	cmd := exec.Command("dot", "-T", "png", DotName, "-o", "Reportes/ReporteGraphviz.png")
 	err = cmd.Run()
 	if err != nil {
 		fmt.Println("Error al generar la imagen: ", err)

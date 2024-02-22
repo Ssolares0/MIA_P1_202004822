@@ -14,3 +14,8 @@ fdisk -size=300 -type=L -unit=K -fit=bf -driveletter=A -name=Particion3
 rep -id=A122 -path=Reportes/report1.png -name=disk
 
 rep -id=A122 -path=Reportes/reportmbr.png -name=mbr
+
+mount -driveletter=A -name=Particion1 #id=A122
+unmount -id=A122
+
+fdisk -size=1000 -driveletter=A -name=Particion2 -type=P

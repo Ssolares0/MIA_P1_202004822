@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+var MountList []*MOUNT
+
 func Analyze(command string) {
 	fmt.Println(command)
 	//aqui al comando, le quitamos los espacios y lo devolvemos como un token
@@ -50,6 +52,11 @@ func Analyze(command string) {
 		Analyze_Fdisk(token_[1:])
 	case "mount":
 		Analyze_Mount(token_[1:])
+	case "unmount":
+		Analyze_Unmount(token_[1:])
+
+	case "showmount":
+		ShowMount()
 
 	case "rep":
 		Analyze_Reportes(token_[1:])
@@ -389,6 +396,11 @@ func CreateNewDisk(size_int int, unit string, fit string) {
 	disk.MBR_PART3.PART_NAME = [16]byte{'0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
 	disk.MBR_PART4.PART_NAME = [16]byte{'0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
 
+	disk.MBR_PART1.PART_ID = [4]byte{'0', '0', '0', '0'}
+	disk.MBR_PART2.PART_ID = [4]byte{'0', '0', '0', '0'}
+	disk.MBR_PART3.PART_ID = [4]byte{'0', '0', '0', '0'}
+	disk.MBR_PART4.PART_ID = [4]byte{'0', '0', '0', '0'}
+
 	//llenamos el archivo en bytes
 	bufer := new(bytes.Buffer)
 	for i := 0; i < 1024; i++ {
@@ -432,7 +444,6 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 	} else if unit == "" && size_int != 0 {
 		size_bytes = int64(size_int * 1024)
 		unit = "K"
-
 	} else {
 		fmt.Println("Error en el tamaño del disco")
 		return
@@ -691,13 +702,28 @@ func Mount(drive string, name string) {
 	//creamos el id
 	//estructura del ID: letra del disco+ correlativo de la particion + ultimos dos digitos del carnet 202004822
 	var Id string
+	var path string
 	var ultimoCaracter byte
+
+	if drive == "" {
+		fmt.Println("No se encontro el parametro -driveletter")
+		return
+
+	}
+	if name == "" {
+		fmt.Println("No se encontro el parametro -name")
+		return
+
+	}
 
 	//obtenemos el numero del nombre
 	name_mod := name
 
 	// Convertir el string a un slice de bytes
 	bytes := []byte(name_mod)
+
+	//guardamos toda la ruta
+	path = "MIA/P1/" + drive + ".dsk"
 
 	// Obtener el último carácter
 	if len(bytes) > 0 {
@@ -710,5 +736,196 @@ func Mount(drive string, name string) {
 	// Asignar valores al ID
 	Id = drive + ultimoCa + "22"
 	fmt.Println("El id es: ", Id)
+
+	//Abrimos el disco
+	file, err := os.OpenFile("MIA/P1/"+drive+".dsk", os.O_RDWR, 0777)
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+	defer file.Close()
+	//leemos el mbr
+	var disk MBR
+	file.Seek(int64(0), 0)
+	err = binary.Read(file, binary.LittleEndian, &disk)
+	if err != nil {
+		fmt.Println("Error al leer el MBR: ", err)
+		return
+	}
+
+	//primero vemos que partcion se va montar con el correlativo del ID
+	if ultimoCaracter == '1' {
+		if disk.MBR_PART1.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART1.PART_NAME[:]), name) {
+			//modificamos el estado de la particion
+			disk.MBR_PART1.PART_STATUS = [1]byte{'1'}
+			//y modificamos el id
+			copy(disk.MBR_PART1.PART_ID[:], Id)
+
+			//estos valores los almacenamos en la estructura  mount
+			mount1 := NewMount()
+			mount1.Name_part = name
+			mount1.path_part = path
+			copy(mount1.ID_part[:], Id)
+			mount1.type_part = disk.MBR_PART1.PART_TYPE
+			mount1.Size_Part = disk.MBR_PART1.PART_SIZE
+			mount1.Start_part = disk.MBR_PART1.PART_START
+			MountList = append(MountList, mount1)
+
+			fmt.Println("Se monto la particion1 con exito")
+		}
+	} else if ultimoCaracter == '2' {
+		if disk.MBR_PART2.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART2.PART_NAME[:]), name) {
+			//modificamos el estado de la particion
+			disk.MBR_PART2.PART_STATUS = [1]byte{'1'}
+			//y modificamos el id
+			copy(disk.MBR_PART2.PART_ID[:], Id)
+
+			//estos valores los almacenamos en la estructura  mount
+			mount2 := NewMount()
+			mount2.Name_part = name
+			mount2.path_part = path
+			copy(mount2.ID_part[:], Id)
+			mount2.type_part = disk.MBR_PART2.PART_TYPE
+			mount2.Size_Part = disk.MBR_PART2.PART_SIZE
+			mount2.Start_part = disk.MBR_PART2.PART_START
+			MountList = append(MountList, mount2)
+			//escribimos en una lista nativa de golang
+
+			fmt.Println("Se monto la particion2 con exito")
+
+		} else {
+			fmt.Println("No se encontro la particion")
+			return
+		}
+	} else if ultimoCaracter == '3' {
+		if disk.MBR_PART3.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART3.PART_NAME[:]), name) {
+			//modificamos el estado de la particion
+			disk.MBR_PART3.PART_STATUS = [1]byte{'1'}
+			//y modificamos el id
+			copy(disk.MBR_PART3.PART_ID[:], Id)
+
+			//estos valores los almacenamos en la estructura  mount
+			mount3 := NewMount()
+			mount3.Name_part = name
+			mount3.path_part = path
+			copy(mount3.ID_part[:], Id)
+			mount3.type_part = disk.MBR_PART3.PART_TYPE
+			mount3.Size_Part = disk.MBR_PART3.PART_SIZE
+			mount3.Start_part = disk.MBR_PART3.PART_START
+			MountList = append(MountList, mount3)
+			//escribimos en una lista nativa de golang
+
+			fmt.Println("Se monto la particion3 con exito")
+
+		} else {
+			fmt.Println("No se encontro la particion")
+			return
+		}
+
+	} else if ultimoCaracter == '4' {
+		if disk.MBR_PART4.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART4.PART_NAME[:]), name) {
+			//modificamos el estado de la particion
+			disk.MBR_PART4.PART_STATUS = [1]byte{'1'}
+			//y modificamos el id
+			copy(disk.MBR_PART4.PART_ID[:], Id)
+
+			//estos valores los almacenamos en la estructura  mount
+			mount4 := NewMount()
+			mount4.Name_part = name
+			mount4.path_part = path
+			copy(mount4.ID_part[:], Id)
+			mount4.type_part = disk.MBR_PART4.PART_TYPE
+			mount4.Size_Part = disk.MBR_PART4.PART_SIZE
+			mount4.Start_part = disk.MBR_PART4.PART_START
+			MountList = append(MountList, mount4)
+			//escribimos en una lista nativa de golang
+
+			fmt.Println("Se monto la particion4 con exito")
+
+		} else {
+			fmt.Println("No se encontro la particion")
+			return
+		}
+
+	}
+
+	//mostramos la lista de particiones montadas
+	for _, element := range MountList {
+		fmt.Println("Nombre de la particion: ", string(element.Name_part[:]))
+		fmt.Println("Ruta de la particion: ", string(element.path_part[:]))
+		fmt.Println("ID de la particion: ", string(element.ID_part[:]))
+		fmt.Println("Tipo de la particion: ", element.type_part)
+		fmt.Println("Start de la particion: ", element.Start_part)
+		fmt.Println("Tamaño de la particion: ", element.Size_Part)
+	}
+
+	//
+
+}
+
+func Analyze_Unmount(list_tokens []string) {
+	var FlagObligatorio bool = true
+	var id string
+
+	//vamos a separar el valor igual
+	for x := 0; x < len(list_tokens); x++ {
+		tokens := strings.Split(list_tokens[x], "=")
+		switch tokens[0] {
+		case "-id":
+			id = tokens[1]
+
+			fmt.Println("El id es: " + id)
+
+		}
+
+	}
+	if id == "" {
+		fmt.Println("no se encontro el parametro -driveletter")
+		FlagObligatorio = false
+
+	}
+
+	if FlagObligatorio == true {
+		fmt.Println("Desmontando  particion...")
+		//montamos la particion
+		UnMount(id)
+
+	}
+
+}
+
+func UnMount(id string) {
+	//buscamos el id en la lista
+	for i, element := range MountList {
+		if string(element.ID_part[:]) == id {
+			//modificamos el estado de la particion
+			MountList[i].Name_part = ""
+			MountList[i].path_part = ""
+			MountList[i].ID_part = [4]byte{'0', '0', '0', '0'}
+			MountList[i].type_part = [1]byte{'P'}
+			MountList[i].Size_Part = -1
+			MountList[i].Start_part = -1
+			fmt.Println("Se desmonto la particion con exito")
+			return
+		}
+	}
+	fmt.Println("No se encontro la particion con el id: ", id)
+
+}
+
+func ShowMount() {
+
+	fmt.Println("-----------------------------------Mostrando particiones montadas--------------------------")
+	//mostramos la lista de particiones montadas
+	for _, element := range MountList {
+		fmt.Println("Nombre de la particion: ", string(element.Name_part[:]))
+		fmt.Println("Ruta de la particion: ", string(element.path_part[:]))
+		fmt.Println("ID de la particion: ", string(element.ID_part[:]))
+		fmt.Println("Tipo de la particion: ", element.type_part)
+		fmt.Println("Start de la particion: ", element.Start_part)
+		fmt.Println("Tamaño de la particion: ", element.Size_Part)
+		fmt.Println("----------------------------------------------------------------------------------------------")
+	}
+	fmt.Println("----------------------------------------------------------------------------------------------")
 
 }
