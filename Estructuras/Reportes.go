@@ -67,6 +67,9 @@ func Analyze_Reportes(list_tokens []string) {
 		} else if name == "mbr" {
 
 			ReporteMBR()
+		} else if name == "sb" {
+
+			ReporteSuperBlock()
 		} else {
 			fmt.Println("Error: El nombre del reporte es incorrecto")
 		}
@@ -494,6 +497,67 @@ func ReporteDisk(name string, path string, id string) {
 
 }
 
+func ReporteSuperBlock() {
+	//Abrir el disco A
+	archivo, err := os.Open("MIA/P1/" + "A" + ".dsk")
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+	defer archivo.Close()
+	var sb Superblock
+	archivo.Seek(int64(0), 0)
+	err = binary.Read(archivo, binary.LittleEndian, &sb)
+	if err != nil {
+		fmt.Println("Error al leer el superblock del disco: ", err)
+		return
+	}
+	//tamano := strconv.Itoa(int(sb.SBlocksCount))
+	//LEEMOS LOS DATOS DEL MBR Y LOS PONEMS EN GRAPHVIZ
+
+	dot := "digraph { graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"2\", splines=\"ortho\"];"
+	dot += "node [shape=plain]"
+	dot += "rankdir=LR;"
+
+	dot += "Foo [label=<"
+	dot += "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">"
+	dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Reporte del Super bloque</td></tr>"
+	dot += "<tr><td>sb_nombre</td><td>"
+	dot += "A.dsk"
+	dot += "</td></tr>"
+	dot += "<tr><td>sb.arbol_virtual_count</td><td>"
+	dot += string(sb.SBlocksCount)
+	dot += "</td></tr>"
+	dot += "<tr><td>sb_detalle_directorio_count</td><td>"
+	dot += string(sb.SInodesCount)
+
+	dot += "</table>>];"
+	dot += "}"
+
+	//Crear el archivo .dot
+	dotName := "Reportes/ReporteSB.dot"
+	archivoDot, err := os.Create(dotName)
+	if err != nil {
+		fmt.Println("Error al crear el archivo .dot: ", err)
+		return
+	}
+	defer archivoDot.Close()
+	_, err = archivoDot.WriteString(dot)
+	if err != nil {
+		fmt.Println("Error al escribir el archivo .dot: ", err)
+		return
+	}
+	//Generar la imagen
+	cmd := exec.Command("dot", "-T", "jpg", dotName, "-o", "Reportes/ReporteSB.jpg")
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error al generar la imagen: ", err)
+		return
+	}
+
+	fmt.Println("Reporte generado con exito")
+
+}
 func ReporteGraphviz() {
 	//Abrir el disco A
 	archivo, err := os.Open("MIA/P1/" + "A" + ".dsk")

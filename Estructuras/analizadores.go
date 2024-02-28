@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"os"
 	"strconv"
@@ -54,6 +55,9 @@ func Analyze(command string) {
 		Analyze_Mount(token_[1:])
 	case "unmount":
 		Analyze_Unmount(token_[1:])
+
+	case "mkfs":
+		Analyze_mkfs(token_[1:])
 
 	case "showmount":
 		ShowMount()
@@ -753,14 +757,33 @@ func Mount(drive string, name string) {
 		return
 	}
 
+	if disk.MBR_SIZE == 0 {
+		fmt.Println("El disco no es valido")
+
+		return
+
+	}
+
+	//verificar si ya esta montada la partcion
+	for _, element := range MountList {
+		if strings.Contains(string(element.Name_part[:]), name) && strings.Contains(string(element.ID_part[:]), Id) {
+			fmt.Println("Error: La particion ya esta montada!")
+
+			return
+		}
+
+	}
 	//primero vemos que partcion se va montar con el correlativo del ID
 	if ultimoCaracter == '1' {
 		if disk.MBR_PART1.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART1.PART_NAME[:]), name) {
 			//modificamos el estado de la particion
 			disk.MBR_PART1.PART_STATUS = [1]byte{'1'}
+
 			//y modificamos el id
 			copy(disk.MBR_PART1.PART_ID[:], Id)
 
+			file.Seek(0, 0)
+			binary.Write(file, binary.LittleEndian, &disk)
 			//estos valores los almacenamos en la estructura  mount
 			mount1 := NewMount()
 			mount1.Name_part = name
@@ -771,7 +794,7 @@ func Mount(drive string, name string) {
 			mount1.Start_part = disk.MBR_PART1.PART_START
 			MountList = append(MountList, mount1)
 
-			fmt.Println("Se monto la particion1 con exito")
+			fmt.Println("Se monto la particion1 con exito ID: ", Id)
 		}
 	} else if ultimoCaracter == '2' {
 		if disk.MBR_PART2.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART2.PART_NAME[:]), name) {
@@ -779,7 +802,8 @@ func Mount(drive string, name string) {
 			disk.MBR_PART2.PART_STATUS = [1]byte{'1'}
 			//y modificamos el id
 			copy(disk.MBR_PART2.PART_ID[:], Id)
-
+			file.Seek(0, 0)
+			binary.Write(file, binary.LittleEndian, &disk)
 			//estos valores los almacenamos en la estructura  mount
 			mount2 := NewMount()
 			mount2.Name_part = name
@@ -791,7 +815,7 @@ func Mount(drive string, name string) {
 			MountList = append(MountList, mount2)
 			//escribimos en una lista nativa de golang
 
-			fmt.Println("Se monto la particion2 con exito")
+			fmt.Println("Se monto la particion2 con exito ID: ", Id)
 
 		} else {
 			fmt.Println("No se encontro la particion")
@@ -803,6 +827,8 @@ func Mount(drive string, name string) {
 			disk.MBR_PART3.PART_STATUS = [1]byte{'1'}
 			//y modificamos el id
 			copy(disk.MBR_PART3.PART_ID[:], Id)
+			file.Seek(0, 0)
+			binary.Write(file, binary.LittleEndian, &disk)
 
 			//estos valores los almacenamos en la estructura  mount
 			mount3 := NewMount()
@@ -815,10 +841,10 @@ func Mount(drive string, name string) {
 			MountList = append(MountList, mount3)
 			//escribimos en una lista nativa de golang
 
-			fmt.Println("Se monto la particion3 con exito")
+			fmt.Println("Se monto la particion3 con exito ID: ", Id)
 
 		} else {
-			fmt.Println("No se encontro la particion")
+			fmt.Println("No se encontro la particion ")
 			return
 		}
 
@@ -828,6 +854,8 @@ func Mount(drive string, name string) {
 			disk.MBR_PART4.PART_STATUS = [1]byte{'1'}
 			//y modificamos el id
 			copy(disk.MBR_PART4.PART_ID[:], Id)
+			file.Seek(0, 0)
+			binary.Write(file, binary.LittleEndian, &disk)
 
 			//estos valores los almacenamos en la estructura  mount
 			mount4 := NewMount()
@@ -840,23 +868,13 @@ func Mount(drive string, name string) {
 			MountList = append(MountList, mount4)
 			//escribimos en una lista nativa de golang
 
-			fmt.Println("Se monto la particion4 con exito")
+			fmt.Println("Se monto la particion4 con exito ID: ", Id)
 
 		} else {
 			fmt.Println("No se encontro la particion")
 			return
 		}
 
-	}
-
-	//mostramos la lista de particiones montadas
-	for _, element := range MountList {
-		fmt.Println("Nombre de la particion: ", string(element.Name_part[:]))
-		fmt.Println("Ruta de la particion: ", string(element.path_part[:]))
-		fmt.Println("ID de la particion: ", string(element.ID_part[:]))
-		fmt.Println("Tipo de la particion: ", element.type_part)
-		fmt.Println("Start de la particion: ", element.Start_part)
-		fmt.Println("Tamaño de la particion: ", element.Size_Part)
 	}
 
 	//
@@ -910,6 +928,278 @@ func UnMount(id string) {
 		}
 	}
 	fmt.Println("No se encontro la particion con el id: ", id)
+
+}
+
+func Analyze_mkfs(list_tokens []string) {
+	var FlagObligatorio bool = true
+	var id, type_, fs string
+
+	//vamos a separar el valor igual
+	for x := 0; x < len(list_tokens); x++ {
+		tokens := strings.Split(list_tokens[x], "=")
+		switch tokens[0] {
+		case "-id":
+			id = tokens[1]
+
+			fmt.Println("El id es: " + id)
+
+		case "-type":
+			type_ = tokens[1]
+			type_ = strings.ToLower(type_)
+			fmt.Println("El type es: " + type_)
+
+		case "-fs":
+			fs = tokens[1]
+			fs = strings.ToLower(fs)
+
+		}
+
+	}
+	if id == "" {
+		fmt.Println("no se encontro el parametro -id")
+		FlagObligatorio = false
+
+	}
+
+	if FlagObligatorio == true {
+		fmt.Println("Formateando particion...")
+		//montamos la particion
+		Mkfs(id, type_, fs)
+
+	}
+
+}
+
+func Mkfs(id string, type_ string, fs string) {
+
+	var n int
+
+	if type_ == "" {
+		type_ = "full"
+	}
+	if fs == "" {
+		fs = "2fs"
+
+	}
+
+	//empezamos con el formateo EXT2
+	indice := VerificarPartMontada(id)
+	part_size := ObtenerTamano(id)
+
+	if indice == -1 {
+		fmt.Println("la particion no esta montada: ", id)
+		return
+
+	}
+	fmt.Println("el indice es; " + strconv.Itoa(indice))
+	MountActual := MountList[1]
+
+	if fs == "2fs" {
+		char := byte('1')
+
+		numerator := part_size - binary.Size(Superblock{})
+		denominator := 4*binary.Size(char) + binary.Size(Inode{}) + 3*binary.Size(FileBlock{})
+		result := numerator / denominator
+		n = int(math.Floor(float64(result)))
+
+	} else {
+		n = 0
+	}
+
+	//parte para crear superblock
+	sp := NewSuperblock()
+	sp.SInodesCount = n
+	sp.SBlocksCount = (n * 3)
+	sp.SFreeBlocksCount = (n * 3)
+	sp.SFreeInodesCount = (n)
+
+	if fs == "2fs" {
+		Create2fs(sp, MountActual, n)
+	}
+
+}
+
+func Create2fs(superblock Superblock, MountActual *MOUNT, n int) {
+	llenar := byte('0')
+	//creamos el superbloque
+	superblock.SFilesystemType = 2
+	superblock.SBmInodeStart = binary.Size(Superblock{}) + int(MountActual.Start_part)
+	superblock.SBmBlockStart = superblock.SBmInodeStart + n
+	superblock.SInodeStart = superblock.SBmBlockStart + (3 * n)
+	superblock.SBlockStart = superblock.SInodeStart + (n * binary.Size(Inode{}))
+	superblock.SFreeBlocksCount--
+	superblock.SFreeInodesCount--
+	superblock.SFreeInodesCount--
+	superblock.SFreeBlocksCount--
+
+	archivo, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	//escribir  el superbloque
+	archivo.Seek(int64(MountActual.Start_part), 0)
+
+	binary.Write(archivo, binary.LittleEndian, &superblock)
+
+	fmt.Println("Se creo el superbloque con exito")
+
+	//crear el bitmap de inodos
+
+	archivo.Seek(int64(superblock.SBmInodeStart), 0)
+	//llenamos el bitmap de inodos
+	for i := 0; i < n; i++ {
+		_, err := archivo.Write([]byte{llenar})
+		if err != nil {
+			fmt.Println("Error al escribir en el archivo:", err)
+			return
+		}
+
+	}
+	fmt.Println("Se creo el bitmap de inodos con exito")
+
+	//creamos el bitmap de bloques
+	archivo.Seek(int64(superblock.SBmBlockStart), 0)
+	//llenamos el bitmap de bloques
+	for i := 0; i < (3 * n); i++ {
+		_, err := archivo.Write([]byte{llenar})
+		if err != nil {
+			fmt.Println("Error al escribir en el archivo:", err)
+			return
+		}
+
+	}
+	fmt.Println("Se creo el bitmap de bloques con exito")
+	//crear los inodos
+	var inodo Inode
+	archivo.Seek(int64(superblock.SInodeStart), 0)
+	for i := 0; i < n; i++ {
+		binary.Write(archivo, binary.LittleEndian, &inodo)
+
+	}
+	defer archivo.Close()
+
+	//creamos los bloques
+	var flblock FileBlock
+	archivo.Seek(int64(superblock.SBlockStart), 0)
+	for i := 0; i < (3 * n); i++ {
+		binary.Write(archivo, binary.LittleEndian, &flblock)
+
+	}
+
+	//creamos el user root
+	var superblock2 Superblock
+	archivo2, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
+	if err != nil {
+		panic(err)
+
+	}
+	archivo2.Seek(int64(MountActual.Start_part), 0)
+	binary.Read(archivo2, binary.LittleEndian, &superblock2)
+	defer archivo2.Close()
+
+	inodo.IUid = 1
+	inodo.IGid = 1
+	inodo.IS = 0
+	inodo.IAtime = time.Now()
+	inodo.ICtime = time.Now()
+	inodo.IMtime = time.Now()
+	inodo.IType = 0
+	inodo.IPerm = 664
+	inodo.IBlock[0] = 0
+
+	//crear el bloque carpeta
+	var fldblock FolderBlock
+	// Asignar los valores a los elementos del bloque de la carpeta
+	fldblock.BContent[0].BName = "."
+	fldblock.BContent[0].BInodo = 0
+	fldblock.BContent[1].BName = ".."
+	fldblock.BContent[1].BInodo = 0
+	fldblock.BContent[2].BName = "users.txt"
+	fldblock.BContent[2].BInodo = 1
+
+	// Crear un string para usuarioRoot
+	usuarioRoot := "1,G,root\n1,U,root,root,123\n"
+
+	//crear inodo tipo 1 archivo
+	var inodo2 Inode
+	inodo2.IUid = 1
+	inodo2.IGid = 1
+	inodo2.IS = len(usuarioRoot) + binary.Size(FileBlock{})
+	inodo2.IAtime = time.Now()
+	inodo2.ICtime = time.Now()
+	inodo2.IMtime = time.Now()
+	inodo2.IType = 1
+	inodo2.IPerm = 664
+	inodo2.IBlock[0] = 1
+
+	//cambiamos a inodo valor
+	FolderBlockSize := binary.Size(FolderBlock{})
+	InodesSize := binary.Size(Inode{})
+	inodo.IS = inodo2.IS + FolderBlockSize + InodesSize
+
+	//creamos el bloque del archivo
+	var flblock2 FileBlock
+	copy(flblock2.BContent[:], usuarioRoot)
+
+	//abrimos el archivo
+	archivo3, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
+
+	if err != nil {
+		panic(err)
+
+	}
+	archivo3.Seek(int64(superblock.SBmInodeStart), 0)
+	bit := byte('1')
+	binary.Write(archivo3, binary.LittleEndian, &bit)
+	binary.Write(archivo3, binary.LittleEndian, &bit)
+
+	archivo3.Seek(int64(superblock.SBlockStart), 0)
+	binary.Write(archivo3, binary.LittleEndian, &bit)
+	binary.Write(archivo3, binary.LittleEndian, &bit)
+
+	archivo3.Seek(int64(superblock.SInodeStart), 0)
+	binary.Write(archivo3, binary.LittleEndian, &inodo)
+	binary.Write(archivo3, binary.LittleEndian, &inodo2)
+
+	archivo3.Seek(int64(superblock.SInodeStart), 0)
+	binary.Write(archivo3, binary.LittleEndian, &fldblock)
+	binary.Write(archivo3, binary.LittleEndian, &flblock)
+	defer archivo3.Close()
+
+	fmt.Println("se creo el sistema de archivos ext2")
+
+}
+
+func VerificarPartMontada(id string) int {
+	//buscamos el id en la lista
+	var indice int = 1
+	for _, element := range MountList {
+		if string(element.ID_part[:]) == id {
+			indice = indice + 1
+			//devolver el indice
+
+			return indice
+
+		}
+	}
+	return -1
+
+}
+func ObtenerTamano(id string) int {
+	//buscamos el id en la lista
+
+	for _, element := range MountList {
+		if string(element.ID_part[:]) == id {
+			tamano := element.Size_Part
+			//devolver el indice
+
+			return int(tamano)
+
+		}
+	}
+	return int(0)
 
 }
 
