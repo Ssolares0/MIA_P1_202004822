@@ -1,5 +1,7 @@
 package Estructuras
 
+var MountList []*MOUNT
+
 type MOUNT struct {
 	Name_part  string
 	path_part  string

@@ -1,19 +1,20 @@
 package Estructuras
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math"
 	"math/rand"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 )
-
-var MountList []*MOUNT
 
 func Analyze(command string) {
 	fmt.Println(command)
@@ -129,7 +130,42 @@ func Analyze_Mkdisk(list_tokens []string) {
 }
 
 func Analyze_execute(list_tokens []string) {
-	fmt.Println(list_tokens)
+	var path string
+
+	for x := 0; x < len(list_tokens); x++ {
+		tokens := strings.Split(list_tokens[x], "=")
+		switch tokens[0] {
+		case "-path":
+			path = tokens[1]
+			fmt.Println("El path es: " + path)
+
+		}
+
+	}
+	if path == "" {
+		fmt.Println("Falta el parametro -path")
+		return
+
+	}
+
+	//Abrimos el archivo
+
+	readFile, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fileScanner := bufio.NewScanner(readFile)
+	fileScanner.Split(bufio.ScanLines)
+	var lines []string
+	for fileScanner.Scan() {
+		lines = append(lines, fileScanner.Text())
+	}
+	readFile.Close()
+	for _, line := range lines {
+		//fmt.Println("The name is:", line)
+		Analyze(line)
+
+	}
 
 }
 func Analyze_Rmdisk(list_tokens []string) {
@@ -972,8 +1008,7 @@ func Analyze_mkfs(list_tokens []string) {
 }
 
 func Mkfs(id string, type_ string, fs string) {
-
-	var n int
+	var n float64
 
 	if type_ == "" {
 		type_ = "full"
@@ -993,15 +1028,11 @@ func Mkfs(id string, type_ string, fs string) {
 
 	}
 	fmt.Println("el indice es; " + strconv.Itoa(indice))
-	MountActual := MountList[1]
+	MountActual := MountList[indice]
 
 	if fs == "2fs" {
-		char := byte('1')
 
-		numerator := part_size - binary.Size(Superblock{})
-		denominator := 4*binary.Size(char) + binary.Size(Inode{}) + 3*binary.Size(FileBlock{})
-		result := numerator / denominator
-		n = int(math.Floor(float64(result)))
+		n = (math.Floor(float64(part_size)-float64(unsafe.Sizeof(Superblock{}))) / float64(4+unsafe.Sizeof(Inode{})+3*unsafe.Sizeof(FileBlock{})))
 
 	} else {
 		n = 0
@@ -1009,13 +1040,13 @@ func Mkfs(id string, type_ string, fs string) {
 
 	//parte para crear superblock
 	sp := NewSuperblock()
-	sp.SInodesCount = n
-	sp.SBlocksCount = (n * 3)
-	sp.SFreeBlocksCount = (n * 3)
-	sp.SFreeInodesCount = (n)
+	sp.SInodesCount = int(n)
+	sp.SBlocksCount = int(n * 3)
+	sp.SFreeBlocksCount = int(n * 3)
+	sp.SFreeInodesCount = int(n)
 
 	if fs == "2fs" {
-		Create2fs(sp, MountActual, n)
+		Create2fs(sp, MountActual, int(n))
 	}
 
 }
@@ -1174,7 +1205,7 @@ func Create2fs(superblock Superblock, MountActual *MOUNT, n int) {
 
 func VerificarPartMontada(id string) int {
 	//buscamos el id en la lista
-	var indice int = 1
+	var indice int = -1
 	for _, element := range MountList {
 		if string(element.ID_part[:]) == id {
 			indice = indice + 1
