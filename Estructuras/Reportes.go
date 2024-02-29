@@ -70,6 +70,8 @@ func Analyze_Reportes(list_tokens []string) {
 		} else if name == "sb" {
 
 			ReporteSuperBlock(id, ruta, name)
+		} else if name == "ebr" {
+			ReporteEBR(id, path, name)
 		} else {
 			fmt.Println("Error: El nombre del reporte es incorrecto")
 		}
@@ -269,6 +271,233 @@ func ReporteMBR(id string, path string, name string) {
 	}
 
 	fmt.Println("Reporte generado con exito")
+}
+
+func ReporteEBR(id string, path string, name string) {
+
+	//ABRIMOS EL EBR SI ES QUE SE UTILIZO
+	// Obtener el primer carácter
+	primerCaracter := id[0]
+	//pasar astring
+	letter := string(primerCaracter)
+	//Abrir el disco A
+	archivo, err := os.Open("MIA/P1/" + letter + ".dsk")
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+	defer archivo.Close()
+	var disk MBR
+	archivo.Seek(int64(0), 0)
+	err = binary.Read(archivo, binary.LittleEndian, &disk)
+	if err != nil {
+		fmt.Println("Error al leer el MBR del disco: ", err)
+		return
+	}
+	//LEEMOS LOS DATOS DEL eBR Y LOS PONEMS EN GRAPHVIZ
+	dot := "digraph { graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"2\", splines=\"ortho\"];"
+	dot += "node [shape=plain]"
+	dot += "rankdir=LR;"
+
+	dot += "Foo [label=<"
+	dot += "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">"
+	dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Reporte del EBR</td></tr>"
+
+	if disk.MBR_PART1.PART_TYPE == [1]byte{'E'} && disk.MBR_PART1.PART_SIZE != 0 {
+		//Leer el EBR
+		ebr := NewEBR()
+		Desplazamiento := int(disk.MBR_PART1.PART_START)
+		archivo.Seek(int64(Desplazamiento), 0)
+		err = binary.Read(archivo, binary.LittleEndian, &ebr)
+		if err != nil {
+			fmt.Println("Error al leer el EBR del disco: ", err)
+			return
+		}
+		if ebr.EBR_SIZE != 0 {
+
+			Desplazamiento += int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
+			archivo.Seek(int64(Desplazamiento), 0)
+			binary.Read(archivo, binary.LittleEndian, &ebr)
+
+			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion 1</td></tr>"
+
+			dot += "<tr><td>Part_name</td><td>"
+			dot += string(ebr.EBR_NAME[:])
+			dot += "</td></tr>"
+
+			dot += "<tr><td>FIT</td><td>"
+			dot += string(ebr.EBR_FIT[:])
+			dot += "</td></tr>"
+
+			dot += "<tr><td>Part_status</td><td>"
+			dot += string(ebr.EBR_MOUNT[:])
+			dot += "</td></tr>"
+
+			dot += "<tr><td>Part_type</td><td>"
+			dot += string(disk.MBR_PART1.PART_TYPE[:])
+			dot += "</td></tr>"
+
+			dot += "<tr><td>Inicio</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_START))
+			dot += "</td></tr>"
+
+			dot += "<tr><td>Tamano</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_SIZE))
+			dot += "</td></tr>"
+			dot += "<tr><td>Next</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_NEXT))
+			dot += "</td></tr>"
+
+		}
+
+	}
+	if disk.MBR_PART2.PART_TYPE == [1]byte{'E'} && disk.MBR_PART2.PART_SIZE != 0 {
+		//Leer el EBR
+		ebr := NewEBR()
+		Desplazamiento := int(disk.MBR_PART2.PART_START)
+		archivo.Seek(int64(Desplazamiento), 0)
+		err = binary.Read(archivo, binary.LittleEndian, &ebr)
+		if err != nil {
+			fmt.Println("Error al leer el EBR del disco: ", err)
+			return
+		}
+		if ebr.EBR_SIZE != 0 {
+			Desplazamiento += int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
+			archivo.Seek(int64(Desplazamiento), 0)
+			binary.Read(archivo, binary.LittleEndian, &ebr)
+
+			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion 2</td></tr>"
+			dot += "<tr><td>Part_name</td><td>"
+			dot += string(ebr.EBR_NAME[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>FIT</td><td>"
+			dot += string(ebr.EBR_FIT[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>Part_status</td><td>"
+			dot += string(ebr.EBR_MOUNT[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>Part_type</td><td>"
+			dot += string(disk.MBR_PART1.PART_TYPE[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>Inicio</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_START))
+			dot += "</td></tr>"
+			dot += "<tr><td>Tamano</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_SIZE))
+			dot += "</td></tr>"
+			dot += "<tr><td>Next</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_NEXT))
+			dot += "</td></tr>"
+
+		}
+	}
+	if disk.MBR_PART3.PART_TYPE == [1]byte{'E'} && disk.MBR_PART3.PART_SIZE != 0 {
+		//Leer el EBR
+		ebr := NewEBR()
+		Desplazamiento := int(disk.MBR_PART3.PART_START)
+		archivo.Seek(int64(Desplazamiento), 0)
+		err = binary.Read(archivo, binary.LittleEndian, &ebr)
+		if err != nil {
+			fmt.Println("Error al leer el EBR del disco: ", err)
+			return
+		}
+		if ebr.EBR_SIZE != 0 {
+
+			Desplazamiento += int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
+			archivo.Seek(int64(Desplazamiento), 0)
+			binary.Read(archivo, binary.LittleEndian, &ebr)
+
+			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion 3</td></tr>"
+			dot += "<tr><td>Part_name</td><td>"
+			dot += string(ebr.EBR_NAME[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>FIT</td><td>"
+			dot += string(ebr.EBR_FIT[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>Part_status</td><td>"
+			dot += string(ebr.EBR_MOUNT[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>Part_type</td><td>"
+			dot += string(disk.MBR_PART1.PART_TYPE[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>Inicio</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_START))
+			dot += "</td></tr>"
+			dot += "<tr><td>Tamano</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_SIZE))
+			dot += "</td></tr>"
+			dot += "<tr><td>Next</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_NEXT))
+			dot += "</td></tr>"
+		}
+
+	}
+	if disk.MBR_PART4.PART_TYPE == [1]byte{'E'} && disk.MBR_PART4.PART_SIZE != 0 {
+		//Leer el EBR
+		ebr := NewEBR()
+		Desplazamiento := int(disk.MBR_PART4.PART_START)
+		archivo.Seek(int64(Desplazamiento), 0)
+		err = binary.Read(archivo, binary.LittleEndian, &ebr)
+		if err != nil {
+			fmt.Println("Error al leer el EBR del disco: ", err)
+			return
+		}
+		if ebr.EBR_SIZE != 0 {
+
+			Desplazamiento += int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
+			archivo.Seek(int64(Desplazamiento), 0)
+			binary.Read(archivo, binary.LittleEndian, &ebr)
+			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion 4</td></tr>"
+			dot += "<tr><td>Part_name</td><td>"
+			dot += string(ebr.EBR_NAME[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>FIT</td><td>"
+			dot += string(ebr.EBR_FIT[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>Part_status</td><td>"
+			dot += string(ebr.EBR_MOUNT[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>Part_type</td><td>"
+			dot += string(disk.MBR_PART1.PART_TYPE[:])
+			dot += "</td></tr>"
+			dot += "<tr><td>Inicio</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_START))
+			dot += "</td></tr>"
+			dot += "<tr><td>Tamano</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_SIZE))
+			dot += "</td></tr>"
+			dot += "<tr><td>Next</td><td>"
+			dot += strconv.Itoa(int(ebr.EBR_NEXT))
+			dot += "</td></tr>"
+		}
+
+	}
+	dot += "</table>>];"
+	dot += "}"
+
+	//Crear el archivo .dot
+	dotName := path + letter + ".dot"
+	archivoDot, err := os.Create(dotName)
+	if err != nil {
+		fmt.Println("Error al crear el archivo .dot: ", err)
+		return
+	}
+	defer archivoDot.Close()
+	_, err = archivoDot.WriteString(dot)
+	if err != nil {
+		fmt.Println("Error al escribir el archivo .dot: ", err)
+		return
+	}
+	//Generar la imagen
+	cmd := exec.Command("dot", "-T", "jpg", dotName, "-o", path)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error al generar la imagen: ", err)
+		return
+	}
+
+	fmt.Println("Reporte generado con exito")
+
 }
 
 func ReporteDisk(name string, path string, id string) {
