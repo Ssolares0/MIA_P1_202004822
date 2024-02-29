@@ -248,7 +248,7 @@ func ReporteMBR(id string, path string, name string) {
 	dot += "}"
 
 	//Crear el archivo .dot
-	dotName := "Reportes/ReporteMBR" + letter + ".dot"
+	dotName := path + letter + ".dot"
 	archivoDot, err := os.Create(dotName)
 	if err != nil {
 		fmt.Println("Error al crear el archivo .dot: ", err)
