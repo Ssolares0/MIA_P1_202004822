@@ -23,3 +23,4 @@ unmount -id=A122
 
 mkfs -type=full -id=A122
 fdisk -size=1000 -driveletter=A -name=Particion2 -type=P
+asassa
