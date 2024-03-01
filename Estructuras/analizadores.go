@@ -16,6 +16,16 @@ import (
 	"unsafe"
 )
 
+type UserActive struct {
+	User     string
+	Password string
+	Id       string
+	Uid      int
+	Gid      int
+}
+
+var Logeado UserActive
+
 func Analyze(command string) {
 	fmt.Println(command)
 	//aqui al comando, le quitamos los espacios y lo devolvemos como un token
@@ -59,6 +69,9 @@ func Analyze(command string) {
 
 	case "mkfs":
 		Analyze_mkfs(token_[1:])
+
+	case "login":
+		Analyze_Login(token_[1:])
 
 	case "showmount":
 		ShowMount()
@@ -324,8 +337,11 @@ func Confirmacion(msg string) bool {
 
 }
 
-func WriteInBytes() {
-	fmt.Println("jeje")
+func WriteinBytes(file *os.File, bytes []byte) {
+	_, err := file.Write(bytes)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func CreateNewDisk(size_int int, unit string, fit string) {
@@ -1031,8 +1047,9 @@ func Mkfs(id string, type_ string, fs string) {
 	MountActual := MountList[indice]
 
 	if fs == "2fs" {
-
-		n = (math.Floor(float64(part_size)-float64(unsafe.Sizeof(Superblock{}))) / float64(4+unsafe.Sizeof(Inode{})+3*unsafe.Sizeof(FileBlock{})))
+		numerador := float64(part_size) - float64(unsafe.Sizeof(Superblock{}))
+		denominador := float64(4 + unsafe.Sizeof(Inode{}) + 3*unsafe.Sizeof(FileBlock{}))
+		n = math.Floor(numerador / denominador)
 
 	} else {
 		n = 0
@@ -1040,29 +1057,33 @@ func Mkfs(id string, type_ string, fs string) {
 
 	//parte para crear superblock
 	sp := NewSuperblock()
-	sp.SInodesCount = int(n)
-	sp.SBlocksCount = int(n * 3)
-	sp.SFreeBlocksCount = int(n * 3)
-	sp.SFreeInodesCount = int(n)
+	sp.SMagic = 0xEF53
+	sp.SInodeS = int64(unsafe.Sizeof(Inode{}))
+	sp.SBlockS = int64(unsafe.Sizeof(FolderBlock{}))
+	sp.SInodesCount = int64(n)
+	sp.SFreeInodesCount = int64(n)
+	sp.SBlocksCount = int64(3 * n)
+	sp.SFreeBlocksCount = int64(3 * n)
+	fecha := time.Now().String()
+	copy(sp.SMtime[:], fecha)
+	sp.SMntCount = sp.SMntCount + 1
+	sp.SFilesystemType = 2
 
 	if fs == "2fs" {
-		Create2fs(sp, MountActual, int(n))
+		Create2fs(sp, MountActual, int64(n))
 	}
 
 }
 
-func Create2fs(superblock Superblock, MountActual *MOUNT, n int) {
-	llenar := byte('0')
+func Create2fs(superblock Superblock, MountActual *MOUNT, n int64) {
+	zeros := 0
+
 	//creamos el superbloque
-	superblock.SFilesystemType = 2
-	superblock.SBmInodeStart = binary.Size(Superblock{}) + int(MountActual.Start_part)
+
+	superblock.SBmInodeStart = MountActual.Start_part + int64(unsafe.Sizeof(Superblock{}))
 	superblock.SBmBlockStart = superblock.SBmInodeStart + n
 	superblock.SInodeStart = superblock.SBmBlockStart + (3 * n)
-	superblock.SBlockStart = superblock.SInodeStart + (n * binary.Size(Inode{}))
-	superblock.SFreeBlocksCount--
-	superblock.SFreeInodesCount--
-	superblock.SFreeInodesCount--
-	superblock.SFreeBlocksCount--
+	superblock.SBlockStart = superblock.SInodeStart + (n * int64(unsafe.Sizeof(Inode{})))
 
 	archivo, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
 	if err != nil {
@@ -1072,133 +1093,176 @@ func Create2fs(superblock Superblock, MountActual *MOUNT, n int) {
 	//escribir  el superbloque
 	archivo.Seek(int64(MountActual.Start_part), 0)
 
-	binary.Write(archivo, binary.LittleEndian, &superblock)
+	var binar2 bytes.Buffer
+	binary.Write(&binar2, binary.BigEndian, &superblock)
+
+	WriteinBytes(archivo, binar2.Bytes())
+
+	archivo.Seek(int64(superblock.SBmInodeStart), 0)
+
+	//iteramos
+	for i := 0; i < int(n); i++ {
+		var binzero bytes.Buffer
+		binary.Write(&binzero, binary.BigEndian, zeros)
+		WriteinBytes(archivo, binzero.Bytes())
+	}
+
+	archivo.Seek(int64(superblock.SBmBlockStart), 0)
+	//llenamos el bitmap de inodos
+	for i := 0; i < 3*int(n); i++ {
+		var binzero bytes.Buffer
+		binary.Write(&binzero, binary.BigEndian, zeros)
+		WriteinBytes(archivo, binzero.Bytes())
+
+	}
 
 	fmt.Println("Se creo el superbloque con exito")
 
-	//crear el bitmap de inodos
-
-	archivo.Seek(int64(superblock.SBmInodeStart), 0)
-	//llenamos el bitmap de inodos
-	for i := 0; i < n; i++ {
-		_, err := archivo.Write([]byte{llenar})
-		if err != nil {
-			fmt.Println("Error al escribir en el archivo:", err)
-			return
-		}
-
-	}
-	fmt.Println("Se creo el bitmap de inodos con exito")
-
-	//creamos el bitmap de bloques
-	archivo.Seek(int64(superblock.SBmBlockStart), 0)
-	//llenamos el bitmap de bloques
-	for i := 0; i < (3 * n); i++ {
-		_, err := archivo.Write([]byte{llenar})
-		if err != nil {
-			fmt.Println("Error al escribir en el archivo:", err)
-			return
-		}
-
-	}
-	fmt.Println("Se creo el bitmap de bloques con exito")
 	//crear los inodos
-	var inodo Inode
-	archivo.Seek(int64(superblock.SInodeStart), 0)
-	for i := 0; i < n; i++ {
-		binary.Write(archivo, binary.LittleEndian, &inodo)
+	inodo := NewInode()
+	inodo.IUid = -1
+	inodo.IGid = -1
+	inodo.IS = -1
+
+	for i := 0; i < len(inodo.IBlock); i++ {
+		inodo.IBlock[i] = -1
+	}
+	inodo.IType = -1
+	inodo.IPerm = -1
+
+	archivo.Seek(superblock.SBmInodeStart, 0)
+	for i := 0; i < int(n); i++ {
+		var binInodo bytes.Buffer
+		binary.Write(&binInodo, binary.BigEndian, inodo)
+		WriteinBytes(archivo, binInodo.Bytes())
+	}
+
+	fld := NewFolderBlock()
+
+	for i := 0; i < len(fld.BContent); i++ {
+		fld.BContent[i].BInodo = -1
 
 	}
-	defer archivo.Close()
 
-	//creamos los bloques
-	var flblock FileBlock
-	archivo.Seek(int64(superblock.SBlockStart), 0)
-	for i := 0; i < (3 * n); i++ {
-		binary.Write(archivo, binary.LittleEndian, &flblock)
-
+	archivo.Seek(superblock.SBmBlockStart, 0)
+	for i := 0; i < int(n); i++ {
+		var binarioFolder bytes.Buffer
+		binary.Write(&binarioFolder, binary.BigEndian, fld)
+		WriteinBytes(archivo, binarioFolder.Bytes())
 	}
+	archivo.Close()
 
-	//creamos el user root
-	var superblock2 Superblock
+	nwsb := NewSuperblock()
+
+	//abrimos nuestro archivo
 	archivo2, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
-	if err != nil {
-		panic(err)
 
+	if err != nil {
+		fmt.Println("Error al abrir el archivo2: ", err)
 	}
+
 	archivo2.Seek(int64(MountActual.Start_part), 0)
-	binary.Read(archivo2, binary.LittleEndian, &superblock2)
-	defer archivo2.Close()
+
+	data := leerBytes(archivo2, int(unsafe.Sizeof(Superblock{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &nwsb)
+	if err_ != nil {
+		fmt.Println("binary.Read failed", err_)
+		return
+	}
+	archivo2.Close()
 
 	inodo.IUid = 1
 	inodo.IGid = 1
 	inodo.IS = 0
-	inodo.IAtime = time.Now()
-	inodo.ICtime = time.Now()
-	inodo.IMtime = time.Now()
+	fecha := time.Now().String()
+	copy(inodo.IAtime[:], fecha)
+	copy(inodo.ICtime[:], fecha)
+	copy(inodo.IMtime[:], fecha)
 	inodo.IType = 0
 	inodo.IPerm = 664
 	inodo.IBlock[0] = 0
 
-	//crear el bloque carpeta
-	var fldblock FolderBlock
-	// Asignar los valores a los elementos del bloque de la carpeta
-	fldblock.BContent[0].BName = "."
-	fldblock.BContent[0].BInodo = 0
-	fldblock.BContent[1].BName = ".."
-	fldblock.BContent[1].BInodo = 0
-	fldblock.BContent[2].BName = "users.txt"
-	fldblock.BContent[2].BInodo = 1
+	fb := NewFolderBlock()
+	copy(fb.BContent[0].BName[:], ".")
+	fb.BContent[0].BInodo = 0
+	copy(fb.BContent[1].BName[:], "..")
+	fb.BContent[1].BInodo = 0
+	copy(fb.BContent[2].BName[:], "users.txt")
+	fb.BContent[2].BInodo = 1
 
 	// Crear un string para usuarioRoot
 	usuarioRoot := "1,G,root\n1,U,root,root,123\n"
 
 	//crear inodo tipo 1 archivo
-	var inodo2 Inode
+	inodo2 := NewInode()
 	inodo2.IUid = 1
 	inodo2.IGid = 1
-	inodo2.IS = len(usuarioRoot) + binary.Size(FileBlock{})
-	inodo2.IAtime = time.Now()
-	inodo2.ICtime = time.Now()
-	inodo2.IMtime = time.Now()
+	inodo2.IS = int64(unsafe.Sizeof(usuarioRoot) + unsafe.Sizeof(FolderBlock{}))
+	copy(inodo2.IAtime[:], fecha)
+	copy(inodo2.ICtime[:], fecha)
+	copy(inodo2.IMtime[:], fecha)
 	inodo2.IType = 1
 	inodo2.IPerm = 664
 	inodo2.IBlock[0] = 1
 
-	//cambiamos a inodo valor
-	FolderBlockSize := binary.Size(FolderBlock{})
-	InodesSize := binary.Size(Inode{})
-	inodo.IS = inodo2.IS + FolderBlockSize + InodesSize
+	inodo.IS = inodo2.IS + int64(unsafe.Sizeof(FolderBlock{})) + int64(unsafe.Sizeof(Inode{}))
 
-	//creamos el bloque del archivo
-	var flblock2 FileBlock
-	copy(flblock2.BContent[:], usuarioRoot)
+	var fileblock FileBlock
+	copy(fileblock.BContent[:], usuarioRoot)
 
-	//abrimos el archivo
-	archivo3, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
-
+	file, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
 	if err != nil {
-		panic(err)
+		fmt.Println("no se encuentra el disco")
 
 	}
-	archivo3.Seek(int64(superblock.SBmInodeStart), 0)
-	bit := byte('1')
-	binary.Write(archivo3, binary.LittleEndian, &bit)
-	binary.Write(archivo3, binary.LittleEndian, &bit)
 
-	archivo3.Seek(int64(superblock.SBlockStart), 0)
-	binary.Write(archivo3, binary.LittleEndian, &bit)
-	binary.Write(archivo3, binary.LittleEndian, &bit)
+	file.Seek(superblock.SBmInodeStart, 0)
 
-	archivo3.Seek(int64(superblock.SInodeStart), 0)
-	binary.Write(archivo3, binary.LittleEndian, &inodo)
-	binary.Write(archivo3, binary.LittleEndian, &inodo2)
+	char := '1'
+	var bin1 bytes.Buffer
+	binary.Write(&bin1, binary.BigEndian, char)
+	WriteinBytes(file, bin1.Bytes())
+	WriteinBytes(file, bin1.Bytes())
 
-	archivo3.Seek(int64(superblock.SInodeStart), 0)
-	binary.Write(archivo3, binary.LittleEndian, &fldblock)
-	binary.Write(archivo3, binary.LittleEndian, &flblock)
-	defer archivo3.Close()
+	file.Seek(superblock.SBlockStart, 0)
+	var bin2 bytes.Buffer
+	binary.Write(&bin2, binary.BigEndian, char)
+	WriteinBytes(file, bin2.Bytes())
+	WriteinBytes(file, bin1.Bytes())
 
+	file.Seek(superblock.SInodeStart, 0)
+
+	var bin3 bytes.Buffer
+	binary.Write(&bin3, binary.BigEndian, inodo)
+	WriteinBytes(file, bin3.Bytes())
+
+	file.Seek(superblock.SInodeS+int64(unsafe.Sizeof(Inode{})), 0)
+	var bin4 bytes.Buffer
+	binary.Write(&bin4, binary.BigEndian, inodo2)
+	WriteinBytes(file, bin4.Bytes())
+
+	file.Seek(superblock.SBlockS, 0)
+
+	var bin5 bytes.Buffer
+	binary.Write(&bin5, binary.BigEndian, fb)
+	WriteinBytes(file, bin5.Bytes())
+
+	//fmt.Println(spr.S_block_start + int64(unsafe.Sizeof(Structs.BloquesCarpetas{})))
+
+	file.Seek(superblock.SBlockS+int64(unsafe.Sizeof(FolderBlock{})), 0)
+	var bin6 bytes.Buffer
+	binary.Write(&bin6, binary.BigEndian, fileblock)
+	WriteinBytes(file, bin6.Bytes())
+
+	file.Close()
+
+	namepart := ""
+	for i := 0; i < len(MountActual.Name_part); i++ {
+		if MountActual.Name_part[i] != 0 {
+			namepart += string(MountActual.Name_part[i])
+		}
+	}
 	fmt.Println("se creo el sistema de archivos ext2")
 
 }
@@ -1234,6 +1298,154 @@ func ObtenerTamano(id string) int {
 
 }
 
+func Analyze_Login(list_tokens []string) {
+	var FlagObligatorio bool = true
+	var user, password, id string
+
+	//vamos a separar el valor igual
+	for x := 0; x < len(list_tokens); x++ {
+		tokens := strings.Split(list_tokens[x], "=")
+		switch tokens[0] {
+		case "-user":
+			user = tokens[1]
+
+			fmt.Println("El user es: " + user)
+
+		case "-pass":
+			password = tokens[1]
+			fmt.Println("El password es: " + password)
+
+		case "-id":
+			id = tokens[1]
+			fmt.Println("El id es: " + id)
+
+		}
+
+	}
+	if user == "" {
+		fmt.Println("no se encontro el parametro -user")
+		FlagObligatorio = false
+
+	}
+	if password == "" {
+		fmt.Println("no se encontro el parametro -password")
+		FlagObligatorio = false
+	}
+	if id == "" {
+		fmt.Println("no se encontro el parametro -id")
+		FlagObligatorio = false
+
+	}
+
+	if FlagObligatorio == true {
+		fmt.Println("Logeando...")
+		//montamos la particion
+		Login(user, password, id)
+
+	}
+
+}
+func Login(user string, password string, id string) {
+	partition := VerificarPartMontada(id)
+
+	if partition == -1 {
+		fmt.Println("La particion no esta montada")
+		return
+
+	}
+	//abrimos el archivo
+	archivo, err := os.OpenFile(MountList[partition].path_part, os.O_RDWR, 0644)
+	if err != nil {
+		fmt.Println("Error al abrir el archivo: ", err)
+		return
+
+	}
+	sb := NewSuperblock()
+	archivo.Seek(int64(MountList[partition].Start_part), 0)
+	data := leerBytes(archivo, int(unsafe.Sizeof(Superblock{})))
+	bf := bytes.NewBuffer(data)
+	err = binary.Read(bf, binary.BigEndian, &sb)
+	if err != nil {
+		fmt.Println("Error al leer el superbloque: ", err)
+		return
+
+	}
+	inodo := NewInode()
+	archivo.Seek(int64(sb.SInodeStart)+int64(unsafe.Sizeof(Inode{})), 0)
+	data = leerBytes(archivo, int(unsafe.Sizeof(Inode{})))
+	bf = bytes.NewBuffer(data)
+	err = binary.Read(bf, binary.BigEndian, &inodo)
+	if err != nil {
+		fmt.Println("Error al leer el inodo: ", err)
+		return
+
+	}
+	var barch FileBlock
+	txt := ""
+	for bloque := 0; bloque < 16; bloque++ {
+		if inodo.IBlock[bloque] != -1 {
+			archivo.Seek(int64(sb.SBlockStart)+int64(unsafe.Sizeof(FolderBlock{}))+int64(unsafe.Sizeof(FileBlock{}))*int64(bloque-1), 0)
+			data = leerBytes(archivo, int(unsafe.Sizeof(FolderBlock{})))
+			bf = bytes.NewBuffer(data)
+			err = binary.Read(bf, binary.BigEndian, &barch)
+			if err != nil {
+				fmt.Println("Error al leer el bloque de carpeta: ", err)
+				return
+
+			}
+			for i := 0; i < len(barch.BContent); i++ {
+				if barch.BContent[i] != 0 {
+					txt += string(barch.BContent[i])
+				}
+			}
+
+		}
+
+	}
+
+	vc := strings.Split(txt, "\n")
+	for i := 0; i < len(vc)-1; i++ {
+		line := vc[i]
+		if line[2] == 'U' || line[2] == 'u' {
+			inn := strings.Split(line, ",")
+			if Comparacion(inn[3], user) && Comparacion(inn[4], password) && inn[0] != "0" {
+				id_group := "0"
+				exist := false
+
+				for j := 0; j < len(vc)-1; j++ {
+					line2 := vc[j]
+					if (line2[2] == 'G' || line2[2] == 'g') && line2[0] != 0 {
+						ing := strings.Split(line2, ",")
+						if ing[2] == inn[2] {
+							id_group = ing[0]
+							exist = true
+							break
+
+						}
+					}
+				}
+				if !exist {
+					fmt.Println("El grupo no existe")
+					return
+				}
+				fmt.Println("logeado correctamente")
+				fmt.Println("Bienvenido usuario" + user)
+				Logeado.Id = id
+				Logeado.User = user
+				Logeado.Password = password
+				Logeado.Gid, _ = strconv.Atoi(inn[0])
+				Logeado.Uid, _ = strconv.Atoi(id_group)
+
+			}
+
+		}
+	}
+}
+
+func LogOut() {
+	Logeado = UserActive{}
+}
+
 func ShowMount() {
 
 	fmt.Println("-----------------------------------Mostrando particiones montadas--------------------------")
@@ -1249,4 +1461,21 @@ func ShowMount() {
 	}
 	fmt.Println("----------------------------------------------------------------------------------------------")
 
+}
+func leerBytes(file *os.File, number int) []byte {
+	bytes := make([]byte, number) //array de bytes
+
+	_, err := file.Read(bytes) // Leido -> bytes
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return bytes
+}
+
+func Comparacion(name string, name2 string) bool {
+	if strings.ToUpper(name) == strings.ToUpper(name2) {
+		return true
+	}
+	return false
 }

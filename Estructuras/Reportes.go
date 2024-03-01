@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func Analyze_Reportes(list_tokens []string) {
@@ -315,7 +316,6 @@ func ReporteEBR(id string, path string, name string) {
 		}
 		if ebr.EBR_SIZE != 0 {
 
-			Desplazamiento += int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
 			archivo.Seek(int64(Desplazamiento), 0)
 			binary.Read(archivo, binary.LittleEndian, &ebr)
 
@@ -334,7 +334,7 @@ func ReporteEBR(id string, path string, name string) {
 			dot += "</td></tr>"
 
 			dot += "<tr><td>Part_type</td><td>"
-			dot += string(disk.MBR_PART1.PART_TYPE[:])
+			dot += "L"
 			dot += "</td></tr>"
 
 			dot += "<tr><td>Inicio</td><td>"
@@ -362,7 +362,7 @@ func ReporteEBR(id string, path string, name string) {
 			return
 		}
 		if ebr.EBR_SIZE != 0 {
-			Desplazamiento += int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
+
 			archivo.Seek(int64(Desplazamiento), 0)
 			binary.Read(archivo, binary.LittleEndian, &ebr)
 
@@ -377,7 +377,7 @@ func ReporteEBR(id string, path string, name string) {
 			dot += string(ebr.EBR_MOUNT[:])
 			dot += "</td></tr>"
 			dot += "<tr><td>Part_type</td><td>"
-			dot += string(disk.MBR_PART1.PART_TYPE[:])
+			dot += "L"
 			dot += "</td></tr>"
 			dot += "<tr><td>Inicio</td><td>"
 			dot += strconv.Itoa(int(ebr.EBR_START))
@@ -403,7 +403,6 @@ func ReporteEBR(id string, path string, name string) {
 		}
 		if ebr.EBR_SIZE != 0 {
 
-			Desplazamiento += int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
 			archivo.Seek(int64(Desplazamiento), 0)
 			binary.Read(archivo, binary.LittleEndian, &ebr)
 
@@ -418,7 +417,7 @@ func ReporteEBR(id string, path string, name string) {
 			dot += string(ebr.EBR_MOUNT[:])
 			dot += "</td></tr>"
 			dot += "<tr><td>Part_type</td><td>"
-			dot += string(disk.MBR_PART1.PART_TYPE[:])
+			dot += "L"
 			dot += "</td></tr>"
 			dot += "<tr><td>Inicio</td><td>"
 			dot += strconv.Itoa(int(ebr.EBR_START))
@@ -444,7 +443,6 @@ func ReporteEBR(id string, path string, name string) {
 		}
 		if ebr.EBR_SIZE != 0 {
 
-			Desplazamiento += int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
 			archivo.Seek(int64(Desplazamiento), 0)
 			binary.Read(archivo, binary.LittleEndian, &ebr)
 			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion 4</td></tr>"
@@ -458,7 +456,7 @@ func ReporteEBR(id string, path string, name string) {
 			dot += string(ebr.EBR_MOUNT[:])
 			dot += "</td></tr>"
 			dot += "<tr><td>Part_type</td><td>"
-			dot += string(disk.MBR_PART1.PART_TYPE[:])
+			dot += "L"
 			dot += "</td></tr>"
 			dot += "<tr><td>Inicio</td><td>"
 			dot += strconv.Itoa(int(ebr.EBR_START))
@@ -818,10 +816,108 @@ func ReporteSuperBlock(id string, ruta string, name string) {
 	sb := NewSuperblock()
 	fmt.Println("la posicion de inicio es: ", MountActual.Start_part)
 	archivo.Seek(int64(MountActual.Start_part), 0)
-	err = binary.Read(archivo, binary.LittleEndian, &sb)
+	err = binary.Read(archivo, binary.BigEndian, &sb)
 	if err != nil {
 		fmt.Println("Error al abrir el superblock: ", err)
 		return
 	}
+	//leemos el superbloque y mostramos en consola para ver si estan bien los datos
+	fmt.Println("Sistema de archivos utilizado", sb.SFilesystemType)
+	fmt.Println("fecha que se monto el sistema", sb.SMtime)
+	fmt.Println("Tamano Superbloque: ", sb.SBlockS)
+	fmt.Println("Numero de inodos: ", sb.SInodesCount)
+	fmt.Println("Inicio de tabla de inodos: ", sb.SInodeStart)
+	fmt.Println("Numero de bloques: ", sb.SBlocksCount)
+	fmt.Println("Bloques libres: ", sb.SFreeBlocksCount)
+	fmt.Println("Inodos libres: ", sb.SFreeInodesCount)
+	fmt.Println("Primer bloque de datos: ", sb.SBmBlockStart)
+	fmt.Println("Tamano del inodo: ", sb.SInodeS)
+	fmt.Println("Numero magico: ", sb.SMagic)
+	fmt.Println("inicio de superbloque : ", sb.SBlockStart)
+	fmt.Println("inicio de bitmap de bloques : ", sb.SBmBlockStart)
+	fmt.Println("inicio de bitmap de inodos : ", sb.SBmInodeStart)
+	fmt.Println("posicion del primer inodo libre : ", sb.SFirstIno)
+	fmt.Println("posicion del primer bloque libre : ", sb.SFirstBlo)
+	formattedDate := time.Unix(0, int64(binary.LittleEndian.Uint64(sb.SMtime[:]))*1000000).String()
 
+	//LEEMOS LOS DATOS DEL SUPERBLOQUE Y LOS PONEMS EN GRAPHVIZ
+	dot := "digraph { graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"2\", splines=\"ortho\"];"
+	dot += "node [shape=plain]"
+	dot += "rankdir=LR;"
+
+	dot += "Foo [label=<"
+	dot += "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">"
+	dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Reporte del SuperBloque</td></tr>"
+
+	dot += "<tr><td>Sistema de archivos</td><td>"
+	dot += strconv.Itoa(int(sb.SFilesystemType))
+	dot += "</td></tr>"
+	dot += "<tr><td>Fecha de montura</td><td>"
+	dot += formattedDate
+	dot += "</td></tr>"
+	dot += "<tr><td>Tamano Superbloque</td><td>"
+	dot += strconv.Itoa(int(sb.SBlockS))
+	dot += "</td></tr>"
+	dot += "<tr><td>Numero de inodos</td><td>"
+	dot += strconv.Itoa(int(sb.SInodesCount))
+	dot += "</td></tr>"
+	dot += "<tr><td>Inicio de tabla de inodos</td><td>"
+	dot += strconv.Itoa(int(sb.SInodeStart))
+	dot += "</td></tr>"
+	dot += "<tr><td>Numero de bloques</td><td>"
+	dot += strconv.Itoa(int(sb.SBlocksCount))
+	dot += "</td></tr>"
+	dot += "<tr><td>Bloques libres</td><td>"
+	dot += strconv.Itoa(int(sb.SFreeBlocksCount))
+	dot += "</td></tr>"
+	dot += "<tr><td>Inodos libres</td><td>"
+	dot += strconv.Itoa(int(sb.SFreeInodesCount))
+	dot += "</td></tr>"
+	dot += "<tr><td>Primer bloque de datos</td><td>"
+	dot += strconv.Itoa(int(sb.SBmBlockStart))
+	dot += "</td></tr>"
+	dot += "<tr><td>Tamano del inodo</td><td>"
+	dot += strconv.Itoa(int(sb.SInodeS))
+	dot += "</td></tr>"
+	dot += "<tr><td>Numero magico</td><td>"
+	dot += strconv.Itoa(int(sb.SMagic))
+	dot += "</td></tr>"
+	dot += "<tr><td>Inicio de superbloque</td><td>"
+	dot += strconv.Itoa(int(sb.SBlockStart))
+	dot += "</td></tr>"
+	dot += "<tr><td>Inicio de bitmap de bloques</td><td>"
+	dot += strconv.Itoa(int(sb.SBmBlockStart))
+	dot += "</td></tr>"
+	dot += "<tr><td>Inicio de bitmap de inodos</td><td>"
+	dot += strconv.Itoa(int(sb.SBmInodeStart))
+	dot += "</td></tr>"
+	dot += "<tr><td>Posicion del primer inodo libre</td><td>"
+	dot += strconv.Itoa(int(sb.SFirstIno))
+	dot += "</td></tr>"
+	dot += "<tr><td>Posicion del primer bloque libre</td><td>"
+	dot += strconv.Itoa(int(sb.SFirstBlo))
+	dot += "</td></tr>"
+	dot += "</table>>];"
+	dot += "}"
+
+	//Crear el archivo .dot
+	dotName := "Reportes/ReporteSuperBloque.dot"
+	archivoDot, err := os.Create(dotName)
+	if err != nil {
+		fmt.Println("Error al crear el archivo .dot: ", err)
+		return
+	}
+	defer archivoDot.Close()
+	_, err = archivoDot.WriteString(dot)
+	if err != nil {
+		fmt.Println("Error al escribir el archivo .dot: ", err)
+		return
+	}
+	//Generar la imagen
+	cmd := exec.Command("dot", "-T", "jpg", dotName, "-o", "Reportes/ReporteSuperBloque.jpg")
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error al generar la imagen: ", err)
+		return
+	}
 }
