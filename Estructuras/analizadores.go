@@ -39,11 +39,8 @@ func Analyze(command string) {
 
 	//verificamos si el token tiene un #
 	if strings.Contains(token_[0], "#") {
-		fmt.Println("comentario: ")
+
 		token_[0] = strings.Replace(token_[0], "#", "", -1)
-		for _, element := range token_ {
-			fmt.Println(element + " ")
-		}
 
 	}
 
@@ -72,6 +69,8 @@ func Analyze(command string) {
 
 	case "login":
 		Analyze_Login(token_[1:])
+	case "logout":
+		Analyze_Logout(token_[1:])
 
 	case "showmount":
 		ShowMount()
@@ -171,7 +170,12 @@ func Analyze_execute(list_tokens []string) {
 	fileScanner.Split(bufio.ScanLines)
 	var lines []string
 	for fileScanner.Scan() {
-		lines = append(lines, fileScanner.Text())
+		line := fileScanner.Text()
+
+		if line != "" {
+			lines = append(lines, line)
+
+		}
 	}
 	readFile.Close()
 	for _, line := range lines {
@@ -1085,7 +1089,7 @@ func Create2fs(superblock Superblock, MountActual *MOUNT, n int64) {
 	superblock.SInodeStart = superblock.SBmBlockStart + (3 * n)
 	superblock.SBlockStart = superblock.SInodeStart + (n * int64(unsafe.Sizeof(Inode{})))
 
-	archivo, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
+	archivo, err := os.OpenFile(MountActual.path_part, os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		panic(err)
 	}
@@ -1144,7 +1148,7 @@ func Create2fs(superblock Superblock, MountActual *MOUNT, n int64) {
 
 	}
 
-	archivo.Seek(superblock.SBmBlockStart, 0)
+	archivo.Seek(superblock.SBlockStart, 0)
 	for i := 0; i < int(n); i++ {
 		var binarioFolder bytes.Buffer
 		binary.Write(&binarioFolder, binary.BigEndian, fld)
@@ -1225,7 +1229,7 @@ func Create2fs(superblock Superblock, MountActual *MOUNT, n int64) {
 	WriteinBytes(file, bin1.Bytes())
 	WriteinBytes(file, bin1.Bytes())
 
-	file.Seek(superblock.SBlockStart, 0)
+	file.Seek(superblock.SBmBlockStart, 0)
 	var bin2 bytes.Buffer
 	binary.Write(&bin2, binary.BigEndian, char)
 	WriteinBytes(file, bin2.Bytes())
@@ -1242,7 +1246,7 @@ func Create2fs(superblock Superblock, MountActual *MOUNT, n int64) {
 	binary.Write(&bin4, binary.BigEndian, inodo2)
 	WriteinBytes(file, bin4.Bytes())
 
-	file.Seek(superblock.SBlockS, 0)
+	file.Seek(superblock.SBlockStart, 0)
 
 	var bin5 bytes.Buffer
 	binary.Write(&bin5, binary.BigEndian, fb)
@@ -1250,7 +1254,7 @@ func Create2fs(superblock Superblock, MountActual *MOUNT, n int64) {
 
 	//fmt.Println(spr.S_block_start + int64(unsafe.Sizeof(Structs.BloquesCarpetas{})))
 
-	file.Seek(superblock.SBlockS+int64(unsafe.Sizeof(FolderBlock{})), 0)
+	file.Seek(superblock.SBlockStart+int64(unsafe.Sizeof(FolderBlock{})), 0)
 	var bin6 bytes.Buffer
 	binary.Write(&bin6, binary.BigEndian, fileblock)
 	WriteinBytes(file, bin6.Bytes())
@@ -1340,24 +1344,30 @@ func Analyze_Login(list_tokens []string) {
 	if FlagObligatorio == true {
 		fmt.Println("Logeando...")
 		//montamos la particion
-		Login(user, password, id)
+		Logged(user, password, id)
 
 	}
 
 }
-func Login(user string, password string, id string) {
+
+func Analyze_Logout(list_tokens []string) {
+	fmt.Println("Deslogeando...")
+	LogOut()
+
+}
+func Logged(user string, password string, id string) bool {
 	partition := VerificarPartMontada(id)
 
 	if partition == -1 {
 		fmt.Println("La particion no esta montada")
-		return
+		return false
 
 	}
 	//abrimos el archivo
 	archivo, err := os.OpenFile(MountList[partition].path_part, os.O_RDWR, 0644)
 	if err != nil {
 		fmt.Println("Error al abrir el archivo: ", err)
-		return
+		return false
 
 	}
 	sb := NewSuperblock()
@@ -1367,7 +1377,7 @@ func Login(user string, password string, id string) {
 	err = binary.Read(bf, binary.BigEndian, &sb)
 	if err != nil {
 		fmt.Println("Error al leer el superbloque: ", err)
-		return
+		return false
 
 	}
 	inodo := NewInode()
@@ -1377,28 +1387,29 @@ func Login(user string, password string, id string) {
 	err = binary.Read(bf, binary.BigEndian, &inodo)
 	if err != nil {
 		fmt.Println("Error al leer el inodo: ", err)
-		return
+		return false
 
 	}
 	var barch FileBlock
 	txt := ""
-	for bloque := 0; bloque < 16; bloque++ {
-		if inodo.IBlock[bloque] != -1 {
-			archivo.Seek(int64(sb.SBlockStart)+int64(unsafe.Sizeof(FolderBlock{}))+int64(unsafe.Sizeof(FileBlock{}))*int64(bloque-1), 0)
-			data = leerBytes(archivo, int(unsafe.Sizeof(FolderBlock{})))
-			bf = bytes.NewBuffer(data)
-			err = binary.Read(bf, binary.BigEndian, &barch)
-			if err != nil {
-				fmt.Println("Error al leer el bloque de carpeta: ", err)
-				return
+	for bloque := 1; bloque < 16; bloque++ {
+		if inodo.IBlock[bloque-1] != -1 {
+			break
 
-			}
-			for i := 0; i < len(barch.BContent); i++ {
-				if barch.BContent[i] != 0 {
-					txt += string(barch.BContent[i])
-				}
-			}
+		}
+		archivo.Seek(int64(sb.SBlockStart)+int64(unsafe.Sizeof(FolderBlock{}))+int64(unsafe.Sizeof(FileBlock{}))*int64(bloque-1), 0)
+		data = leerBytes(archivo, int(unsafe.Sizeof(FolderBlock{})))
+		bf = bytes.NewBuffer(data)
+		err = binary.Read(bf, binary.BigEndian, &barch)
+		if err != nil {
+			fmt.Println("Error al leer el bloque de carpeta: ", err)
+			return false
 
+		}
+		for i := 0; i < len(barch.BContent); i++ {
+			if barch.BContent[i] != 0 {
+				txt += string(barch.BContent[i])
+			}
 		}
 
 	}
@@ -1426,7 +1437,7 @@ func Login(user string, password string, id string) {
 				}
 				if !exist {
 					fmt.Println("El grupo no existe")
-					return
+					return false
 				}
 				fmt.Println("logeado correctamente")
 				fmt.Println("Bienvenido usuario" + user)
@@ -1440,10 +1451,13 @@ func Login(user string, password string, id string) {
 
 		}
 	}
+	fmt.Println("No se encontro el usuario")
+	return false
 }
 
-func LogOut() {
+func LogOut() bool {
 	Logeado = UserActive{}
+	return false
 }
 
 func ShowMount() {

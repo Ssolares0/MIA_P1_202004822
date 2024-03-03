@@ -319,7 +319,7 @@ func ReporteEBR(id string, path string, name string) {
 			archivo.Seek(int64(Desplazamiento), 0)
 			binary.Read(archivo, binary.LittleEndian, &ebr)
 
-			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion 1</td></tr>"
+			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
 
 			dot += "<tr><td>Part_name</td><td>"
 			dot += string(ebr.EBR_NAME[:])
@@ -351,22 +351,25 @@ func ReporteEBR(id string, path string, name string) {
 		}
 
 	}
+
 	if disk.MBR_PART2.PART_TYPE == [1]byte{'E'} && disk.MBR_PART2.PART_SIZE != 0 {
 		//Leer el EBR
 		ebr := NewEBR()
 		Desplazamiento := int(disk.MBR_PART2.PART_START)
-		archivo.Seek(int64(Desplazamiento), 0)
-		err = binary.Read(archivo, binary.LittleEndian, &ebr)
-		if err != nil {
-			fmt.Println("Error al leer el EBR del disco: ", err)
-			return
-		}
-		if ebr.EBR_SIZE != 0 {
 
+		for {
 			archivo.Seek(int64(Desplazamiento), 0)
-			binary.Read(archivo, binary.LittleEndian, &ebr)
 
-			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion 2</td></tr>"
+			err = binary.Read(archivo, binary.LittleEndian, &ebr)
+			if err != nil {
+				fmt.Println("Error al leer el EBR del disco: ", err)
+				return
+			}
+			if ebr.EBR_SIZE == 0 {
+				break
+			}
+
+			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion Logica</td></tr>"
 			dot += "<tr><td>Part_name</td><td>"
 			dot += string(ebr.EBR_NAME[:])
 			dot += "</td></tr>"
@@ -388,6 +391,8 @@ func ReporteEBR(id string, path string, name string) {
 			dot += "<tr><td>Next</td><td>"
 			dot += strconv.Itoa(int(ebr.EBR_NEXT))
 			dot += "</td></tr>"
+
+			Desplazamiento += int(ebr.EBR_NEXT)
 
 		}
 	}
@@ -395,18 +400,20 @@ func ReporteEBR(id string, path string, name string) {
 		//Leer el EBR
 		ebr := NewEBR()
 		Desplazamiento := int(disk.MBR_PART3.PART_START)
-		archivo.Seek(int64(Desplazamiento), 0)
-		err = binary.Read(archivo, binary.LittleEndian, &ebr)
-		if err != nil {
-			fmt.Println("Error al leer el EBR del disco: ", err)
-			return
-		}
-		if ebr.EBR_SIZE != 0 {
 
+		for {
 			archivo.Seek(int64(Desplazamiento), 0)
-			binary.Read(archivo, binary.LittleEndian, &ebr)
 
-			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion 3</td></tr>"
+			err = binary.Read(archivo, binary.LittleEndian, &ebr)
+			if err != nil {
+				fmt.Println("Error al leer el EBR del disco: ", err)
+				return
+			}
+			if ebr.EBR_SIZE == 0 {
+				break
+			}
+
+			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion Logica</td></tr>"
 			dot += "<tr><td>Part_name</td><td>"
 			dot += string(ebr.EBR_NAME[:])
 			dot += "</td></tr>"
@@ -428,6 +435,9 @@ func ReporteEBR(id string, path string, name string) {
 			dot += "<tr><td>Next</td><td>"
 			dot += strconv.Itoa(int(ebr.EBR_NEXT))
 			dot += "</td></tr>"
+
+			Desplazamiento += int(ebr.EBR_NEXT)
+
 		}
 
 	}
@@ -445,7 +455,7 @@ func ReporteEBR(id string, path string, name string) {
 
 			archivo.Seek(int64(Desplazamiento), 0)
 			binary.Read(archivo, binary.LittleEndian, &ebr)
-			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion 4</td></tr>"
+			dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion Logica</td></tr>"
 			dot += "<tr><td>Part_name</td><td>"
 			dot += string(ebr.EBR_NAME[:])
 			dot += "</td></tr>"
