@@ -28,8 +28,10 @@ login -user=root -pass=123 -id=A122
 
 rep -id=A122 -path=Reportes/reporte1.jpg -name=mbr
 rep -id=A122 -path=Reportes/reporte2.png -name=disk 
-rep -id=A122 -path=Reportes/reporte4.jpg -name=ebr
+rep -id=A122 -path=Reportes/reporte3.jpg -name=ebr
 rep -id=A122 -path=Reportes/reporte4.jpg -name=sb
+rep -id=A122 -path=Reportes/reporte5.jpg -name=inode
+
 
 
 22ep -id=A122 -path=/Users/reports/reporte1.jpg -name=mbr

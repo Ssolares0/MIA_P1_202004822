@@ -87,7 +87,7 @@ func Analyze(command string) {
 		fmt.Println("gracias por usar el programa")
 
 	default:
-		fmt.Println("error al leer el comando")
+		fmt.Println("error: el comando no existe")
 
 	}
 
@@ -121,6 +121,9 @@ func Analyze_Mkdisk(list_tokens []string) {
 			//pasar a minuscula
 			fit = strings.ToLower(fit)
 			fmt.Println("el fit es; " + fit)
+
+		default:
+			fmt.Println("no existe el parametro en mkdisk")
 		}
 
 	}
@@ -150,6 +153,9 @@ func Analyze_execute(list_tokens []string) {
 		case "-path":
 			path = tokens[1]
 			fmt.Println("El path es: " + path)
+
+		default:
+			fmt.Println("no existe el parametro en execute")
 
 		}
 
@@ -334,7 +340,11 @@ func Confirmacion(msg string) bool {
 	fmt.Scanln(&respuesta)
 	if respuesta == "y" {
 		return true
+	} else if respuesta == "n" {
+		return false
+
 	} else {
+		fmt.Println("respuesta no valida")
 		return false
 
 	}
@@ -1355,6 +1365,102 @@ func Analyze_Logout(list_tokens []string) {
 	LogOut()
 
 }
+
+func Analyze_mkgrp(list_tokens []string) {
+	fmt.Println("Creando grupo...")
+	var FlagObligatorio bool = true
+	var name string
+
+	//vamos a separar el valor igual
+	for x := 0; x < len(list_tokens); x++ {
+		tokens := strings.Split(list_tokens[x], "=")
+		switch tokens[0] {
+		case "-name":
+			name = tokens[1]
+
+			fmt.Println("El nombre del grupo es: " + name)
+
+		default:
+			fmt.Println("Error: Parametro no reconocido")
+
+		}
+
+	}
+	if name == "" {
+		fmt.Println("no se encontro el parametro -name")
+		FlagObligatorio = false
+	}
+
+	if FlagObligatorio == true {
+
+		//montamos la particion
+		Mkgrp(name)
+	}
+
+}
+
+func Mkgrp(name string) {
+	//buscamos el id en la lista
+	partition := VerificarPartMontada(Logeado.Id)
+
+	if partition == -1 {
+		fmt.Println("La particion no esta montada")
+		return
+
+	}
+	//abrimos el archivo
+	archivo, err := os.OpenFile(MountList[partition].path_part, os.O_RDWR, 0644)
+	if err != nil {
+		fmt.Println("Error al abrir el archivo: ", err)
+		return
+
+	}
+	sb := NewSuperblock()
+	archivo.Seek(int64(MountList[partition].Start_part), 0)
+	data := leerBytes(archivo, int(unsafe.Sizeof(Superblock{})))
+	bf := bytes.NewBuffer(data)
+	err = binary.Read(bf, binary.BigEndian, &sb)
+	if err != nil {
+		fmt.Println("Error al leer el superbloque: ", err)
+		return
+
+	}
+	inodo := NewInode()
+	archivo.Seek(int64(sb.SInodeStart)+int64(unsafe.Sizeof(Inode{})), 0)
+	data = leerBytes(archivo, int(unsafe.Sizeof(Inode{})))
+	bf = bytes.NewBuffer(data)
+	err = binary.Read(bf, binary.BigEndian, &inodo)
+	if err != nil {
+		fmt.Println("Error al leer el inodo: ", err)
+		return
+
+	}
+	var barch FileBlock
+	txt := ""
+	for bloque := 1; bloque < 16; bloque++ {
+		if inodo.IBlock[bloque-1] != -1 {
+			break
+
+		}
+		archivo.Seek(int64(sb.SBlockStart)+int64(unsafe.Sizeof(FolderBlock{}))+int64(unsafe.Sizeof(FileBlock{}))*int64(bloque-1), 0)
+		data = leerBytes(archivo, int(unsafe.Sizeof(FolderBlock{})))
+		bf = bytes.NewBuffer(data)
+		err = binary.Read(bf, binary.BigEndian, &barch)
+		if err != nil {
+			fmt.Println("Error al leer el bloque de carpeta: ", err)
+			return
+
+		}
+		for i := 0; i < len(barch.BContent); i++ {
+			if barch.BContent[i] != 0 {
+				txt += string(barch.BContent[i])
+			}
+		}
+
+	}
+
+}
+
 func Logged(user string, password string, id string) bool {
 	partition := VerificarPartMontada(id)
 

@@ -1,0 +1,2 @@
+digraph grid {bgcolor="antiquewhite" fontname="Comic Sans MS " label=" Reporte Disco"Alayout=dot labelloc = "t"edge [weigth=1000 style=dashed color=red4 dir = "both" arrowtail="open" arrowhead="open"]node[shape=record, color=black]a0[label="MBR|Primaria\n20.00%\n|{Extendida|{EBR|Logica\n6.00%\n|Libre\n12.00%\n}}|Libre\n62.00%\n"];
+}
