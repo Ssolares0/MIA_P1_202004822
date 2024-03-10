@@ -1061,8 +1061,8 @@ func Mkfs(id string, type_ string, fs string) {
 	MountActual := MountList[indice]
 
 	if fs == "2fs" {
-		numerador := float64(part_size) - float64(unsafe.Sizeof(Superblock{}))
-		denominador := float64(4 + unsafe.Sizeof(Inode{}) + 3*unsafe.Sizeof(FileBlock{}))
+		numerador := float64(part_size) - float64(binary.Size(Superblock{}))
+		denominador := float64(4 + binary.Size(Inode{}) + 3*binary.Size(FileBlock{}))
 		n = math.Floor(numerador / denominador)
 
 	} else {
@@ -1070,214 +1070,145 @@ func Mkfs(id string, type_ string, fs string) {
 	}
 
 	//parte para crear superblock
-	sp := NewSuperblock()
-	sp.SMagic = 0xEF53
-	sp.SInodeS = int64(unsafe.Sizeof(Inode{}))
-	sp.SBlockS = int64(unsafe.Sizeof(FolderBlock{}))
-	sp.SInodesCount = int64(n)
-	sp.SFreeInodesCount = int64(n)
-	sp.SBlocksCount = int64(3 * n)
-	sp.SFreeBlocksCount = int64(3 * n)
-	fecha := time.Now().String()
-	copy(sp.SMtime[:], fecha)
-	sp.SMntCount = sp.SMntCount + 1
-	sp.SFilesystemType = 2
+	sb := NewSuperblock()
+	sb.SInodesCount = int64(n)
+	sb.SBlocksCount = int64(n * 3)
+	sb.SFreeBlocksCount = int64(n * 3)
+	sb.SFreeInodesCount = int64(n)
+	fechaActual := time.Now()
+	fecha := fechaActual.Format("2006-01-02 15:04:05")
+	copy(sb.SMtime[:], fecha)
+	copy(sb.SUMtime[:], fecha)
+	sb.SMntCount = 1
 
 	if fs == "2fs" {
-		Create2fs(sp, MountActual, int64(n))
+		Create2fs(sb, MountActual, int64(n))
 	}
 
 }
 
 func Create2fs(superblock Superblock, MountActual *MOUNT, n int64) {
-	zeros := 0
+	//zeros := 0
 
 	//creamos el superbloque
-
-	superblock.SBmInodeStart = MountActual.Start_part + int64(unsafe.Sizeof(Superblock{}))
+	superblock.SFilesystemType = 2
+	superblock.SBmInodeStart = MountActual.Start_part + int64(binary.Size(Superblock{}))
 	superblock.SBmBlockStart = superblock.SBmInodeStart + n
 	superblock.SInodeStart = superblock.SBmBlockStart + (3 * n)
-	superblock.SBlockStart = superblock.SInodeStart + (n * int64(unsafe.Sizeof(Inode{})))
+	superblock.SBlockStart = superblock.SBmInodeStart + (n * int64(binary.Size(Inode{})))
 
-	archivo, err := os.OpenFile(MountActual.path_part, os.O_WRONLY, os.ModeAppend)
+	superblock.SFreeBlocksCount--
+	superblock.SFreeInodesCount--
+	superblock.SFreeBlocksCount--
+	superblock.SFreeInodesCount--
+
+	file, err := os.OpenFile(MountActual.path_part, os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	//escribir  el superbloque
-	archivo.Seek(int64(MountActual.Start_part), 0)
+	file.Seek(int64(MountActual.Start_part), 0)
 
-	var binar2 bytes.Buffer
-	binary.Write(&binar2, binary.BigEndian, &superblock)
+	binary.Write(file, binary.LittleEndian, &superblock)
 
-	WriteinBytes(archivo, binar2.Bytes())
-
-	archivo.Seek(int64(superblock.SBmInodeStart), 0)
-
-	//iteramos
+	//Crear el bitmap de inodos
+	var llenar byte = 0
+	file.Seek(int64(superblock.SBmInodeStart), 0)
 	for i := 0; i < int(n); i++ {
-		var binzero bytes.Buffer
-		binary.Write(&binzero, binary.BigEndian, zeros)
-		WriteinBytes(archivo, binzero.Bytes())
+		binary.Write(file, binary.LittleEndian, &llenar)
 	}
 
-	archivo.Seek(int64(superblock.SBmBlockStart), 0)
-	//llenamos el bitmap de inodos
-	for i := 0; i < 3*int(n); i++ {
-		var binzero bytes.Buffer
-		binary.Write(&binzero, binary.BigEndian, zeros)
-		WriteinBytes(archivo, binzero.Bytes())
-
+	//Crear el bitmap de bloques
+	file.Seek(int64(superblock.SBmBlockStart), 0)
+	for i := 0; i < int(n*3); i++ {
+		binary.Write(file, binary.LittleEndian, &llenar)
 	}
 
-	fmt.Println("Se creo el superbloque con exito")
+	//Crear el inodo 0
+	inodo0 := NewInode()
 
-	//crear los inodos
-	inodo := NewInode()
-	inodo.IUid = -1
-	inodo.IGid = -1
-	inodo.IS = -1
+	//Crear el bloque 0
+	var bloque0 FileBlock
 
-	for i := 0; i < len(inodo.IBlock); i++ {
-		inodo.IBlock[i] = -1
-	}
-	inodo.IType = -1
-	inodo.IPerm = -1
-
-	archivo.Seek(superblock.SBmInodeStart, 0)
+	//Formatear inodos
+	file.Seek(int64(superblock.SInodeStart), 0)
 	for i := 0; i < int(n); i++ {
-		var binInodo bytes.Buffer
-		binary.Write(&binInodo, binary.BigEndian, inodo)
-		WriteinBytes(archivo, binInodo.Bytes())
+		binary.Write(file, binary.LittleEndian, &inodo0)
 	}
 
-	fld := NewFolderBlock()
-
-	for i := 0; i < len(fld.BContent); i++ {
-		fld.BContent[i].BInodo = -1
-
+	//Formatear bloques
+	file.Seek(int64(superblock.SBlockStart), 0)
+	for i := 0; i < int(n*3); i++ {
+		binary.Write(file, binary.LittleEndian, &bloque0)
 	}
 
-	archivo.Seek(superblock.SBlockStart, 0)
-	for i := 0; i < int(n); i++ {
-		var binarioFolder bytes.Buffer
-		binary.Write(&binarioFolder, binary.BigEndian, fld)
-		WriteinBytes(archivo, binarioFolder.Bytes())
-	}
-	archivo.Close()
+	//Crear el directorio raíz
+	//Crear el inodo
+	inodo0.IUid = 1
+	inodo0.IGid = 1
+	fechaActual := time.Now()
+	fecha := fechaActual.Format("2006-01-02 15:04:05")
+	copy(inodo0.IAtime[:], fecha)
+	copy(inodo0.ICtime[:], fecha)
+	copy(inodo0.IMtime[:], fecha)
+	inodo0.IType = ([1]byte{'0'})
+	inodo0.IPerm = 664
+	inodo0.IBlock[0] = 0
 
-	nwsb := NewSuperblock()
+	//Crear el bloque carpeta
 
-	//abrimos nuestro archivo
-	archivo2, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
+	var bloqueCarpeta FolderBlock
+	bloqueCarpeta.BContent[0].BInodo = 0
+	copy(bloqueCarpeta.BContent[0].BName[:], ".")
+	bloqueCarpeta.BContent[1].BInodo = 0
+	copy(bloqueCarpeta.BContent[1].BName[:], "..")
+	bloqueCarpeta.BContent[2].BInodo = 1
+	copy(bloqueCarpeta.BContent[2].BName[:], "users.txt")
+	bloqueCarpeta.BContent[3].BInodo = -1
 
-	if err != nil {
-		fmt.Println("Error al abrir el archivo2: ", err)
-	}
+	data := "1,G,root\n1,U,root,root,123\n"
 
-	archivo2.Seek(int64(MountActual.Start_part), 0)
+	//Escribir el inodo y el bloque en el archivo
 
-	data := leerBytes(archivo2, int(unsafe.Sizeof(Superblock{})))
-	buffer := bytes.NewBuffer(data)
-	err_ := binary.Read(buffer, binary.BigEndian, &nwsb)
-	if err_ != nil {
-		fmt.Println("binary.Read failed", err_)
-		return
-	}
-	archivo2.Close()
+	inodo1 := NewInode()
+	inodo1.IUid = 1
+	inodo1.IGid = 1
+	fechaActual = time.Now()
+	fecha = fechaActual.Format("2006-01-02 15:04:05")
+	copy(inodo1.IAtime[:], fecha)
+	copy(inodo1.ICtime[:], fecha)
+	copy(inodo1.IMtime[:], fecha)
+	inodo1.IType = [1]byte{'1'}
+	inodo1.IPerm = 664
+	inodo1.IBlock[0] = 1
+	inodo1.IS = int64(len(data)) + int64(binary.Size(FileBlock{}))
 
-	inodo.IUid = 1
-	inodo.IGid = 1
-	inodo.IS = 0
-	fecha := time.Now().String()
-	copy(inodo.IAtime[:], fecha)
-	copy(inodo.ICtime[:], fecha)
-	copy(inodo.IMtime[:], fecha)
-	inodo.IType = 0
-	inodo.IPerm = 664
-	inodo.IBlock[0] = 0
+	inodo0.IS = int64(inodo1.IS) + int64(binary.Size(FolderBlock{})) + int64(binary.Size(FolderBlock{}))
 
-	fb := NewFolderBlock()
-	copy(fb.BContent[0].BName[:], ".")
-	fb.BContent[0].BInodo = 0
-	copy(fb.BContent[1].BName[:], "..")
-	fb.BContent[1].BInodo = 0
-	copy(fb.BContent[2].BName[:], "users.txt")
-	fb.BContent[2].BInodo = 1
+	var bloqueArchivo FileBlock
+	copy(bloqueArchivo.BContent[:], data)
 
-	// Crear un string para usuarioRoot
-	usuarioRoot := "1,G,root\n1,U,root,root,123\n"
+	//Escribir el inodo en el archivo
+	file.Seek(int64(superblock.SBmInodeStart), 0)
+	var bit byte = 1
+	binary.Write(file, binary.LittleEndian, &bit)
+	binary.Write(file, binary.LittleEndian, &bit)
 
-	//crear inodo tipo 1 archivo
-	inodo2 := NewInode()
-	inodo2.IUid = 1
-	inodo2.IGid = 1
-	inodo2.IS = int64(unsafe.Sizeof(usuarioRoot) + unsafe.Sizeof(FolderBlock{}))
-	copy(inodo2.IAtime[:], fecha)
-	copy(inodo2.ICtime[:], fecha)
-	copy(inodo2.IMtime[:], fecha)
-	inodo2.IType = 1
-	inodo2.IPerm = 664
-	inodo2.IBlock[0] = 1
+	file.Seek(int64(superblock.SBmBlockStart), 0)
+	binary.Write(file, binary.LittleEndian, &bit)
+	binary.Write(file, binary.LittleEndian, &bit)
 
-	inodo.IS = inodo2.IS + int64(unsafe.Sizeof(FolderBlock{})) + int64(unsafe.Sizeof(Inode{}))
+	file.Seek(int64(superblock.SInodeStart), 0)
+	binary.Write(file, binary.LittleEndian, &inodo0)
+	binary.Write(file, binary.LittleEndian, &inodo1)
 
-	var fileblock FileBlock
-	copy(fileblock.BContent[:], usuarioRoot)
+	file.Seek(int64(superblock.SBlockStart), 0)
+	binary.Write(file, binary.LittleEndian, &bloqueCarpeta)
+	binary.Write(file, binary.LittleEndian, &bloqueArchivo)
 
-	file, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
-	if err != nil {
-		fmt.Println("no se encuentra el disco")
-
-	}
-
-	file.Seek(superblock.SBmInodeStart, 0)
-
-	char := '1'
-	var bin1 bytes.Buffer
-	binary.Write(&bin1, binary.BigEndian, char)
-	WriteinBytes(file, bin1.Bytes())
-	WriteinBytes(file, bin1.Bytes())
-
-	file.Seek(superblock.SBmBlockStart, 0)
-	var bin2 bytes.Buffer
-	binary.Write(&bin2, binary.BigEndian, char)
-	WriteinBytes(file, bin2.Bytes())
-	WriteinBytes(file, bin1.Bytes())
-
-	file.Seek(superblock.SInodeStart, 0)
-
-	var bin3 bytes.Buffer
-	binary.Write(&bin3, binary.BigEndian, inodo)
-	WriteinBytes(file, bin3.Bytes())
-
-	file.Seek(superblock.SInodeS+int64(unsafe.Sizeof(Inode{})), 0)
-	var bin4 bytes.Buffer
-	binary.Write(&bin4, binary.BigEndian, inodo2)
-	WriteinBytes(file, bin4.Bytes())
-
-	file.Seek(superblock.SBlockStart, 0)
-
-	var bin5 bytes.Buffer
-	binary.Write(&bin5, binary.BigEndian, fb)
-	WriteinBytes(file, bin5.Bytes())
-
-	//fmt.Println(spr.S_block_start + int64(unsafe.Sizeof(Structs.BloquesCarpetas{})))
-
-	file.Seek(superblock.SBlockStart+int64(unsafe.Sizeof(FolderBlock{})), 0)
-	var bin6 bytes.Buffer
-	binary.Write(&bin6, binary.BigEndian, fileblock)
-	WriteinBytes(file, bin6.Bytes())
-
-	file.Close()
-
-	namepart := ""
-	for i := 0; i < len(MountActual.Name_part); i++ {
-		if MountActual.Name_part[i] != 0 {
-			namepart += string(MountActual.Name_part[i])
-		}
-	}
-	fmt.Println("se creo el sistema de archivos ext2")
+	fmt.Println("Sistema de archivos 2FS creado con éxito en el disco: ")
 
 }
 

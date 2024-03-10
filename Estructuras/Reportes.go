@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"unsafe"
 	//"time"
 )
 
@@ -899,60 +898,104 @@ func ReporteInode(id string, ruta string, name string) {
 	//Abrir el disco A
 	MountActual := MountList[segundoNumero-1]
 
-	fmt.Println("El indice del mount es: ", MountActual)
+	//fmt.Println("El indice del mount es: ", MountActual)
 
 	archivo, err := os.Open("MIA/P1/" + string(primerCaracter) + ".dsk")
 	if err != nil {
 		fmt.Println("Error al abrir el disco: ", err)
 		return
 	}
-	defer archivo.Close()
 
-	sb := NewSuperblock()
+	var sb Superblock
 
 	_, err = archivo.Seek(MountActual.Start_part, 0)
 	if err != nil {
 		fmt.Println("Error al posicionar el puntero en el inicio de la partición: ", err)
 		return
 	}
-	err = binary.Read(archivo, binary.BigEndian, &sb)
+	err = binary.Read(archivo, binary.LittleEndian, &sb)
 	if err != nil {
 		fmt.Println("Error al leer el SuperBlock: ", err)
 		return
 	}
+	InodoAnterior := 0
+	Dot := "digraph G {\n"
 	DireccionInodo := sb.SInodeStart
-	total_inodes := sb.SInodesCount - sb.SFreeInodesCount
+	//total_inodes := sb.SInodesCount - sb.SFreeInodesCount
 	//var inodoAnterior int = 0
-	for i := 0; i <= int(total_inodes); i++ {
-		//var Escrito byte
+	for i := 0; i < int(sb.SInodesCount); i++ {
+
+		var Escrito byte
 		_, err = archivo.Seek(DireccionInodo+int64(i), 0)
 		if err != nil {
 			fmt.Println("Error al posicionar el puntero en la dirección del Inodo: ", err)
 			return
 		}
 
-		inode := NewInode()
-		_, err = archivo.Seek(sb.SInodeStart+int64(i)*int64(unsafe.Sizeof(Inode{})), 0)
-		if err != nil {
-			fmt.Println("Error al posicionar el puntero en la dirección del Inodo: ", err)
-			return
-		}
-		err = binary.Read(archivo, binary.BigEndian, &inode)
+		err = binary.Read(archivo, binary.LittleEndian, &Escrito)
 		if err != nil {
 			fmt.Println("Error al leer el Inodo: ", err)
 			return
 		}
-		// Imprimir la información del inodo
-		fmt.Printf("\nInformación del Inodo %d:\n", i)
-		fmt.Println("IUid", inode.IUid)
-		fmt.Println("IGid", inode.IGid)
-		fmt.Println("ISize", inode.IS)
-		fmt.Println("IAtime", inode.IAtime)
-		fmt.Println("IMtime", inode.IMtime)
-		fmt.Println("ICtime", inode.ICtime)
-		fmt.Println("IType", inode.IType)
-		fmt.Println("IPerm", inode.IPerm)
 
+		if Escrito == 1 {
+			inode := NewInode()
+			_, err = archivo.Seek(sb.SInodeStart+int64(i)*int64(binary.Size(Inode{})), 0)
+			if err != nil {
+				fmt.Println("Error al posicionar el puntero en la dirección del Inodo: ", err)
+				return
+			}
+			err = binary.Read(archivo, binary.LittleEndian, &inode)
+			if err != nil {
+				fmt.Println("Error al leer el Inodo: ", err)
+				return
+			}
+			// Imprimir la información del inodo
+			Dot += "a" + strconv.Itoa(i) + "[shape=none, color=lightgrey, label=<\n"
+			Dot += "<TABLE cellspacing=\"3\" cellpadding=\"2\" style=\"rounded\">\n"
+			Dot += "<TR><TD>Inodo_" + strconv.Itoa(i) + "</TD><TD></TD></TR>\n"
+			Dot += "<TR><TD> i_uid: </TD><TD> " + strconv.Itoa(int(inode.IUid)) + "</TD></TR>\n"
+			Dot += "<TR><TD> i_gid: </TD><TD> " + strconv.Itoa(int(inode.IGid)) + "</TD></TR>\n"
+			Dot += "<TR><TD> i_size: </TD><TD> " + strconv.Itoa(int(inode.IS)) + "</TD></TR>\n"
+			Dot += "<TR><TD> i_atime: </TD><TD> " + string(sb.SMtime[:]) + "</TD></TR>\n"
+			Dot += "<TR><TD> i_ctime: </TD><TD> " + string(sb.SMtime[:]) + "</TD></TR>\n"
+			Dot += "<TR><TD> i_mtime: </TD><TD> " + string(sb.SMtime[:]) + "</TD></TR>\n"
+			Dot += "<TR><TD> i_block: </TD><TD> " + strconv.Itoa(int(inode.IBlock[0])) + "</TD></TR>\n"
+			Dot += "<TR><TD> i_type: </TD><TD> " + string(inode.IType[:]) + "</TD></TR>\n"
+			Dot += "<TR><TD> i_perm: </TD><TD> " + strconv.Itoa(int(inode.IPerm)) + "</TD></TR>\n"
+			Dot += "</TABLE>>]; \n\n"
+
+			if i-1 >= 0 {
+				Dot += "a" + strconv.Itoa(InodoAnterior) + "-> a" + strconv.Itoa(i) + "\n\n"
+
+			}
+
+			InodoAnterior = i
+
+		}
+
+	}
+	Dot += "}"
+	defer archivo.Close()
+	//Crear el archivo .dot
+	dotName := "Reportes/ReporteInode.dot"
+	archivoDot, err := os.Create(dotName)
+	if err != nil {
+		fmt.Println("Error al crear el archivo .dot: ", err)
+		return
+	}
+	defer archivoDot.Close()
+	_, err = archivoDot.WriteString(Dot)
+	if err != nil {
+		fmt.Println("Error al escribir el archivo .dot: ", err)
+		return
+	}
+	//Generar la imagen
+	cmd := exec.Command("dot", "-T", "jpg", dotName, "-o", "Reportes/ReporteInode.jpg")
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error al generar la imagen: ", err)
+		return
 	}
 
 }
@@ -983,7 +1026,7 @@ func ReporteSuperBlock(id string, ruta string, name string) {
 	sb := NewSuperblock()
 	fmt.Println("la posicion de inicio es: ", MountActual.Start_part)
 	archivo.Seek(int64(MountActual.Start_part), 0)
-	err = binary.Read(archivo, binary.BigEndian, &sb)
+	err = binary.Read(archivo, binary.LittleEndian, &sb)
 	if err != nil {
 		fmt.Println("Error al abrir el superblock: ", err)
 		return

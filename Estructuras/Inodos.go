@@ -8,7 +8,7 @@ type Inode struct {
 	ICtime [16]byte  // fecha en la que se creó el inodo
 	IMtime [16]byte  // última fecha en la que se modificó el inodo
 	IBlock [16]int64 // -1 si no son utilizados
-	IType  int64     // 0: carpeta, 1: archivo
+	IType  [1]byte   // 0: carpeta, 1: archivo
 	IPerm  int64     // permisos del archivo o carpeta (conjuntos de 3 bits: RWX)
 }
 
@@ -18,10 +18,11 @@ func NewInode() Inode {
 	inode.IUid = -1
 	inode.IGid = -1
 	inode.IS = -1
-	for i := 0; i < 16; i++ {
-		inode.IBlock[i] = -1
-	}
-	inode.IType = -1
+	inode.IAtime = [16]byte{}
+	inode.ICtime = [16]byte{}
+	inode.IMtime = [16]byte{}
+	inode.IBlock = [16]int64{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
+	inode.IType = [1]byte{'-'}
 	inode.IPerm = -1
 	return inode
 

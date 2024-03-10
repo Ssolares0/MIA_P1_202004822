@@ -10,7 +10,8 @@ type Superblock struct {
 	SBlocksCount     int64 // total de bloques
 	SFreeBlocksCount int64
 	SFreeInodesCount int64
-	SMtime           [16]byte // última fecha en el que el sistema fue montado
+	SUMtime          [19]byte // última fecha en el que el sistema fue montado
+	SMtime           [19]byte // última fecha en el que el sistema fue montado
 	SMntCount        int64    // cantidad de veces que el sistema se ha montado
 	SMagic           int64    // identifica al sistema de archivos, 0xEF53
 	SInodeS          int64    // tamaño del inodo
@@ -25,10 +26,22 @@ type Superblock struct {
 
 func NewSuperblock() Superblock {
 	return Superblock{
-		SMagic:    0xEF53,
-		SInodeS:   int64(unsafe.Sizeof(Inode{})),
-		SBlockS:   int64(unsafe.Sizeof(FolderBlock{})),
-		SFirstIno: 0,
-		SFirstBlo: 0,
+		SFilesystemType:  0,
+		SInodesCount:     0,
+		SBlocksCount:     0,
+		SFreeBlocksCount: 0,
+		SFreeInodesCount: 0,
+		SUMtime:          [19]byte{},
+		SMtime:           [19]byte{},
+		SMntCount:        0,
+		SMagic:           0xEF53,
+		SInodeS:          int64(unsafe.Sizeof(Inode{})),
+		SBlockS:          int64(unsafe.Sizeof(FolderBlock{})),
+		SFirstIno:        0,
+		SFirstBlo:        0,
+		SBmInodeStart:    0,
+		SBmBlockStart:    0,
+		SInodeStart:      0,
+		SBlockStart:      0,
 	}
 }
