@@ -3,6 +3,7 @@ package Estructuras
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -70,12 +71,15 @@ func Analyze_Reportes(list_tokens []string) {
 			ReporteMBR(id, path, name)
 		} else if name == "sb" {
 
-			ReporteSuperBlock(id, ruta, name)
+			ReporteSuperBlock(id, path, name)
 		} else if name == "ebr" {
 			ReporteEBR(id, path, name)
 
 		} else if name == "inode" {
 			ReporteInode(id, path, name)
+
+		} else if name == "block" {
+			ReporteBlock(id, path, name)
 
 		} else {
 			fmt.Println("Error: El nombre del reporte es incorrecto")
@@ -87,6 +91,8 @@ func Analyze_Reportes(list_tokens []string) {
 }
 
 func ReporteMBR(id string, path string, name string) {
+
+	var extension string
 
 	// Obtener el primer carácter
 	primerCaracter := id[0]
@@ -254,8 +260,42 @@ func ReporteMBR(id string, path string, name string) {
 	dot += "</table>>];"
 	dot += "}"
 
+	//obtenemos los valores de la ruta path
+
+	//quitamos comillas por si trae en path
+	path = strings.Replace(path, "\"", "", -1)
+
+	//separar la extension de la ruta
+
+	if strings.Contains(path, ".") {
+		exten := strings.Split(path, ".")
+		//guardamos la ruta sin la extension
+		path = exten[0]
+		fmt.Println("La extension es: " + exten[1])
+		if exten[1] == "jpg" {
+			extension = "jpg"
+
+		} else if exten[1] == "png" {
+			extension = "png"
+		} else if exten[1] == "pdf" {
+			extension = "pdf"
+		} else {
+			fmt.Println("Error: La extension del archivo no es valida")
+			return
+		}
+
+	}
+	// Verifica si la carpeta existe, y si no, la crea
+	if _, err := os.Stat(path + "." + extension); os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error al crear la carpeta:", err)
+			return
+		}
+	}
+
 	//Crear el archivo .dot
-	dotName := path + letter + ".dot"
+	dotName := path + ".dot"
 	archivoDot, err := os.Create(dotName)
 	if err != nil {
 		fmt.Println("Error al crear el archivo .dot: ", err)
@@ -268,17 +308,19 @@ func ReporteMBR(id string, path string, name string) {
 		return
 	}
 	//Generar la imagen
-	cmd := exec.Command("dot", "-T", "jpg", dotName, "-o", path)
+	cmd := exec.Command("dot", "-T", extension, dotName, "-o", path+"."+extension)
 	err = cmd.Run()
 	if err != nil {
 		fmt.Println("Error al generar la imagen: ", err)
 		return
 	}
 
-	fmt.Println("Reporte generado con exito")
+	fmt.Println("Reporte mbr generado con exito")
 }
 
 func ReporteEBR(id string, path string, name string) {
+
+	var extension string
 
 	//ABRIMOS EL EBR SI ES QUE SE UTILIZO
 	// Obtener el primer carácter
@@ -564,9 +606,41 @@ func ReporteEBR(id string, path string, name string) {
 	}
 	dot += "</table>>];"
 	dot += "}"
+	//quitamos comillas por si trae en path
+	path = strings.Replace(path, "\"", "", -1)
+
+	//separar la extension de la ruta
+
+	if strings.Contains(path, ".") {
+		exten := strings.Split(path, ".")
+		//guardamos la ruta sin la extension
+		path = exten[0]
+		fmt.Println("La extension es: " + exten[1])
+		if exten[1] == "jpg" {
+			extension = "jpg"
+
+		} else if exten[1] == "png" {
+			extension = "png"
+		} else if exten[1] == "pdf" {
+			extension = "pdf"
+		} else {
+			fmt.Println("Error: La extension del archivo no es valida")
+			return
+		}
+
+	}
+
+	// Verifica si la carpeta existe, y si no, la crea
+	if _, err := os.Stat(path + "." + extension); os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error al crear la carpeta:", err)
+			return
+		}
+	}
 
 	//Crear el archivo .dot
-	dotName := path + letter + ".dot"
+	dotName := path + ".dot"
 	archivoDot, err := os.Create(dotName)
 	if err != nil {
 		fmt.Println("Error al crear el archivo .dot: ", err)
@@ -579,18 +653,19 @@ func ReporteEBR(id string, path string, name string) {
 		return
 	}
 	//Generar la imagen
-	cmd := exec.Command("dot", "-T", "jpg", dotName, "-o", path)
+	cmd := exec.Command("dot", "-T", extension, dotName, "-o", path+"."+extension)
 	err = cmd.Run()
 	if err != nil {
 		fmt.Println("Error al generar la imagen: ", err)
 		return
 	}
 
-	fmt.Println("Reporte generado con exito")
+	fmt.Println("Reporte ebr generado con exito")
 
 }
 
 func ReporteDisk(name string, path string, id string) {
+	var extension string
 
 	bytesTexto := []byte(id)
 
@@ -857,9 +932,41 @@ func ReporteDisk(name string, path string, id string) {
 	}
 	Dot += "\"];\n}"
 
+	//quitamos comillas por si trae en path
+	path = strings.Replace(path, "\"", "", -1)
+	//separar la extension de la ruta
+
+	if strings.Contains(path, ".") {
+		exten := strings.Split(path, ".")
+		//guardamos la ruta sin la extension
+		path = exten[0]
+		fmt.Println("La extension es: " + exten[1])
+		if exten[1] == "jpg" {
+			extension = "jpg"
+
+		} else if exten[1] == "png" {
+			extension = "png"
+		} else if exten[1] == "pdf" {
+			extension = "pdf"
+		} else {
+			fmt.Println("Error: La extension del archivo no es valida")
+			return
+		}
+
+	}
+
+	// Verifica si la carpeta existe, y si no, la crea
+	if _, err := os.Stat(path + "." + extension); os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error al crear la carpeta:", err)
+			return
+		}
+	}
+
 	//Crear el archivo .dot
-	DotName := "Reportes/ReporteDisk.dot"
-	archivoDot, err := os.Create(DotName)
+	dotName := path + ".dot"
+	archivoDot, err := os.Create(dotName)
 	if err != nil {
 		fmt.Println("Error al crear el archivo .dot: ", err)
 		return
@@ -871,18 +978,18 @@ func ReporteDisk(name string, path string, id string) {
 		return
 	}
 	//Generar la imagen
-	cmd := exec.Command("dot", "-T", "pdf", DotName, "-o", "Reportes/ReporteDisk.pdf")
+	cmd := exec.Command("dot", "-T", extension, dotName, "-o", path+"."+extension)
 	err = cmd.Run()
 	if err != nil {
 		fmt.Println("Error al generar la imagen: ", err)
 		return
 	}
 
-	fmt.Println("Reporte generado con exito")
+	fmt.Println("Reporte Disk generado con exito")
 
 }
 
-func ReporteInode(id string, ruta string, name string) {
+func ReporteInode(id string, path string, name string) {
 	// Obtener el primer carácter
 	primerCaracter := id[0]
 
@@ -921,64 +1028,82 @@ func ReporteInode(id string, ruta string, name string) {
 	InodoAnterior := 0
 	Dot := "digraph G {\n"
 	DireccionInodo := sb.SInodeStart
-	//total_inodes := sb.SInodesCount - sb.SFreeInodesCount
+
+	_, err = archivo.Seek(DireccionInodo, 0)
+	if err != nil {
+		fmt.Println("Error al posicionar el puntero en la dirección del Inodo: ", err)
+		return
+	}
+
+	total_inodes := sb.SInodesCount - sb.SFreeInodesCount
 	//var inodoAnterior int = 0
-	for i := 0; i < int(sb.SInodesCount); i++ {
-
-		var Escrito byte
-		_, err = archivo.Seek(DireccionInodo+int64(i), 0)
-		if err != nil {
-			fmt.Println("Error al posicionar el puntero en la dirección del Inodo: ", err)
-			return
-		}
-
-		err = binary.Read(archivo, binary.LittleEndian, &Escrito)
+	for i := 0; i < int(total_inodes); i++ {
+		inode := NewInode()
+		err = binary.Read(archivo, binary.LittleEndian, &inode)
 		if err != nil {
 			fmt.Println("Error al leer el Inodo: ", err)
 			return
 		}
 
-		if Escrito == 1 {
-			inode := NewInode()
-			_, err = archivo.Seek(sb.SInodeStart+int64(i)*int64(binary.Size(Inode{})), 0)
-			if err != nil {
-				fmt.Println("Error al posicionar el puntero en la dirección del Inodo: ", err)
-				return
-			}
-			err = binary.Read(archivo, binary.LittleEndian, &inode)
-			if err != nil {
-				fmt.Println("Error al leer el Inodo: ", err)
-				return
-			}
-			// Imprimir la información del inodo
-			Dot += "a" + strconv.Itoa(i) + "[shape=none, color=lightgrey, label=<\n"
-			Dot += "<TABLE cellspacing=\"3\" cellpadding=\"2\" style=\"rounded\">\n"
-			Dot += "<TR><TD>Inodo_" + strconv.Itoa(i) + "</TD><TD></TD></TR>\n"
-			Dot += "<TR><TD> i_uid: </TD><TD> " + strconv.Itoa(int(inode.IUid)) + "</TD></TR>\n"
-			Dot += "<TR><TD> i_gid: </TD><TD> " + strconv.Itoa(int(inode.IGid)) + "</TD></TR>\n"
-			Dot += "<TR><TD> i_size: </TD><TD> " + strconv.Itoa(int(inode.IS)) + "</TD></TR>\n"
-			Dot += "<TR><TD> i_atime: </TD><TD> " + string(sb.SMtime[:]) + "</TD></TR>\n"
-			Dot += "<TR><TD> i_ctime: </TD><TD> " + string(sb.SMtime[:]) + "</TD></TR>\n"
-			Dot += "<TR><TD> i_mtime: </TD><TD> " + string(sb.SMtime[:]) + "</TD></TR>\n"
-			Dot += "<TR><TD> i_block: </TD><TD> " + strconv.Itoa(int(inode.IBlock[0])) + "</TD></TR>\n"
-			Dot += "<TR><TD> i_type: </TD><TD> " + string(inode.IType[:]) + "</TD></TR>\n"
-			Dot += "<TR><TD> i_perm: </TD><TD> " + strconv.Itoa(int(inode.IPerm)) + "</TD></TR>\n"
-			Dot += "</TABLE>>]; \n\n"
+		// Imprimir la información del inodo
+		Dot += "a" + strconv.Itoa(i) + "[shape=none, color=lightgrey, label=<\n"
+		Dot += "<TABLE cellspacing=\"3\" cellpadding=\"2\" style=\"rounded\">\n"
+		Dot += "<TR><TD>Inodo_" + strconv.Itoa(i) + "</TD><TD></TD></TR>\n"
+		Dot += "<TR><TD> i_uid: </TD><TD> " + strconv.Itoa(int(inode.IUid)) + "</TD></TR>\n"
+		Dot += "<TR><TD> i_gid: </TD><TD> " + strconv.Itoa(int(inode.IGid)) + "</TD></TR>\n"
+		Dot += "<TR><TD> i_size: </TD><TD> " + strconv.Itoa(int(inode.IS)) + "</TD></TR>\n"
+		Dot += "<TR><TD> i_atime: </TD><TD> " + string(sb.SMtime[:]) + "</TD></TR>\n"
+		Dot += "<TR><TD> i_ctime: </TD><TD> " + string(sb.SMtime[:]) + "</TD></TR>\n"
+		Dot += "<TR><TD> i_mtime: </TD><TD> " + string(sb.SMtime[:]) + "</TD></TR>\n"
+		Dot += "<TR><TD> i_block: </TD><TD> " + strconv.Itoa(int(inode.IBlock[0])) + "</TD></TR>\n"
+		Dot += "<TR><TD> i_type: </TD><TD> " + string(inode.IType[:]) + "</TD></TR>\n"
+		Dot += "<TR><TD> i_perm: </TD><TD> " + strconv.Itoa(int(inode.IPerm)) + "</TD></TR>\n"
+		Dot += "</TABLE>>]; \n\n"
 
-			if i-1 >= 0 {
-				Dot += "a" + strconv.Itoa(InodoAnterior) + "-> a" + strconv.Itoa(i) + "\n\n"
-
-			}
-
-			InodoAnterior = i
+		if i-1 >= 0 {
+			Dot += "a" + strconv.Itoa(InodoAnterior) + "-> a" + strconv.Itoa(i) + "\n\n"
 
 		}
+
+		InodoAnterior = i
 
 	}
 	Dot += "}"
 	defer archivo.Close()
+	var extension string
+
+	//quitamos comillas por si trae en path
+	path = strings.Replace(path, "\"", "", -1)
+
+	if strings.Contains(path, ".") {
+		exten := strings.Split(path, ".")
+		//guardamos la ruta sin la extension
+		path = exten[0]
+		fmt.Println("La extension es: " + exten[1])
+		if exten[1] == "jpg" {
+			extension = "jpg"
+
+		} else if exten[1] == "png" {
+			extension = "png"
+		} else if exten[1] == "pdf" {
+			extension = "pdf"
+		} else {
+			fmt.Println("Error: La extension del archivo no es valida")
+			return
+		}
+
+	}
+	// Verifica si la carpeta existe, y si no, la crea
+	if _, err := os.Stat(path + "." + extension); os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error al crear la carpeta:", err)
+			return
+		}
+	}
+
 	//Crear el archivo .dot
-	dotName := "Reportes/ReporteInode.dot"
+	dotName := path + ".dot"
 	archivoDot, err := os.Create(dotName)
 	if err != nil {
 		fmt.Println("Error al crear el archivo .dot: ", err)
@@ -991,16 +1116,190 @@ func ReporteInode(id string, ruta string, name string) {
 		return
 	}
 	//Generar la imagen
-	cmd := exec.Command("dot", "-T", "jpg", dotName, "-o", "Reportes/ReporteInode.jpg")
+	cmd := exec.Command("dot", "-T", extension, dotName, "-o", path+"."+extension)
 	err = cmd.Run()
 	if err != nil {
 		fmt.Println("Error al generar la imagen: ", err)
 		return
 	}
 
+	fmt.Println("Reporte Inode generado con exito")
+
 }
 
-func ReporteSuperBlock(id string, ruta string, name string) {
+func ReporteBlock(id string, path string, name string) {
+	// Obtener el primer carácter
+	primerCaracter := id[0]
+
+	// Obtener el segundo carácter
+	segundoCaracter := id[1]
+
+	segundoNumero, err := strconv.Atoi(string(segundoCaracter))
+	if err != nil {
+		fmt.Println("Error al convertir el segundo carácter a entero:", err)
+		return
+	}
+
+	//Abrir el disco A
+	MountActual := MountList[segundoNumero-1]
+
+	//fmt.Println("El indice del mount es: ", MountActual)
+
+	archivo, err := os.Open("MIA/P1/" + string(primerCaracter) + ".dsk")
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+
+	var sb Superblock
+
+	_, err = archivo.Seek(MountActual.Start_part, 0)
+	if err != nil {
+		fmt.Println("Error al posicionar el puntero en el inicio de la partición: ", err)
+		return
+	}
+	err = binary.Read(archivo, binary.LittleEndian, &sb)
+	if err != nil {
+		fmt.Println("Error al leer el SuperBlock: ", err)
+		return
+	}
+	var graphvizString string
+	graphvizString += "digraph G {\n\trankdir=\"LR\"\n\tnode [shape=box]\n\tlabel = \"Bloques\""
+
+	var folderB FolderBlock
+	var fileB FileBlock
+	var isFile bool
+
+	archivo.Seek(int64(sb.SBlockStart), 0)
+	totalBlocks := sb.SBlocksCount - sb.SFreeBlocksCount
+	for i := 0; i < int(totalBlocks); i++ {
+		err = binary.Read(archivo, binary.LittleEndian, &folderB)
+		if err != nil {
+			fmt.Println("Error al leer el FolderBlock: ", err)
+			return
+		}
+		for j := 0; j < 4; j++ {
+			if folderB.BContent[j].BInodo != 0 || folderB.BContent[j].BInodo > (sb.SBlockStart+sb.SBlocksCount) {
+				isFile = true
+				break
+			}
+
+		}
+		if isFile {
+
+			// Moverse hacia atrás en el archivo
+			if _, err := archivo.Seek(-sb.SBlockS, io.SeekCurrent); err != nil {
+				fmt.Println("Error al buscar la posición en el archivo:", err)
+				return
+			}
+
+			// Leer el bloque de archivo
+			if err := binary.Read(archivo, binary.LittleEndian, &fileB); err != nil {
+				fmt.Println("Error al leer FileBlock:", err)
+				return
+			}
+
+			graphvizString += "\n\ta"
+			graphvizString += strconv.Itoa(i)
+			graphvizString += " [label=<\n\t\t<TABLE border=\"3\" cellspacing=\"5\" cellpadding=\"10\"  bgcolor=\"gray\">"
+			graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\"  bgcolor=\"lightblue\"><B>Bloque archivo "
+			graphvizString += strconv.Itoa(i + 1)
+			graphvizString += "</B></TD>\n\t\t\t</TR>"
+			graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\" bgcolor=\"white\">content</TD>\n\t\t\t</TR>"
+			graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\" bgcolor=\"white\">"
+			graphvizString += string(fileB.BContent[:])
+			graphvizString += "</TD>\n\t\t\t</TR>"
+		} else {
+			graphvizString += "\n\ta"
+			graphvizString += strconv.Itoa(i)
+			graphvizString += " [label=<\n\t\t<TABLE border=\"3\" cellspacing=\"5\" cellpadding=\"10\"  bgcolor=\"gray\">"
+			graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\"  bgcolor=\"lightblue\"><B>Bloque carpeta "
+			graphvizString += strconv.Itoa(i + 1)
+			graphvizString += "</B></TD>\n\t\t\t</TR>"
+			for j := 0; j < 4; j++ {
+				graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD border=\"2\" bgcolor=\"white\">b_inodo</TD>"
+				graphvizString += "\n\t\t\t<TD border=\"2\"  bgcolor=\"white\">"
+				graphvizString += strconv.Itoa(int(folderB.BContent[j].BInodo))
+				graphvizString += "</TD>\n\t\t\t</TR>"
+				if folderB.BContent[j].BInodo != -1 {
+					graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD border=\"2\" bgcolor=\"white\">b_name</TD>"
+					graphvizString += "\n\t\t\t<TD border=\"2\"  bgcolor=\"white\">"
+					graphvizString += string(folderB.BContent[j].BName[:])
+					graphvizString += "</TD>\n\t\t\t</TR>"
+				}
+			}
+		}
+		graphvizString += "\n\t\t</TABLE>>];"
+		if i > 0 {
+			graphvizString += "\n\ta"
+			graphvizString += strconv.Itoa(i - 1)
+			graphvizString += " -> a"
+			graphvizString += strconv.Itoa(i)
+			graphvizString += ";"
+		}
+		isFile = false
+
+	}
+	graphvizString += "\n}"
+	archivo.Close()
+	var extension string
+
+	//quitamos comillas por si trae en path
+	path = strings.Replace(path, "\"", "", -1)
+
+	if strings.Contains(path, ".") {
+		exten := strings.Split(path, ".")
+		//guardamos la ruta sin la extension
+		path = exten[0]
+		fmt.Println("La extension es: " + exten[1])
+		if exten[1] == "jpg" {
+			extension = "jpg"
+
+		} else if exten[1] == "png" {
+			extension = "png"
+		} else if exten[1] == "pdf" {
+			extension = "pdf"
+		} else {
+			fmt.Println("Error: La extension del archivo no es valida")
+			return
+		}
+
+	}
+	// Verifica si la carpeta existe, y si no, la crea
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error al crear la carpeta:", err)
+			return
+		}
+	}
+
+	//Crear el archivo .dot
+	dotName := path + ".dot"
+	archivoDot, err := os.Create(dotName)
+	if err != nil {
+		fmt.Println("Error al crear el archivo .dot: ", err)
+		return
+	}
+	defer archivoDot.Close()
+	_, err = archivoDot.WriteString(graphvizString)
+	if err != nil {
+		fmt.Println("Error al escribir el archivo .dot: ", err)
+		return
+	}
+	//Generar la imagen
+	cmd := exec.Command("dot", "-T", extension, dotName, "-o", path+"."+extension)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error al generar la imagen: ", err)
+		return
+	}
+
+	fmt.Println("Reporte Block generado con exito")
+
+}
+
+func ReporteSuperBlock(id string, path string, name string) {
 
 	// Obtener el primer carácter
 	primerCaracter := id[0]
@@ -1031,27 +1330,6 @@ func ReporteSuperBlock(id string, ruta string, name string) {
 		fmt.Println("Error al abrir el superblock: ", err)
 		return
 	}
-	//leemos el superbloque y mostramos en consola para ver si estan bien los datos
-	/*
-		fmt.Println("Sistema de archivos utilizado", sb.SFilesystemType)
-		fmt.Println("fecha que se monto el sistema", sb.SMtime)
-		fmt.Println("Tamano Superbloque: ", sb.SBlockS)
-		fmt.Println("Numero de inodos: ", sb.SInodesCount)
-		fmt.Println("Inicio de tabla de inodos: ", sb.SInodeStart)
-		fmt.Println("Numero de bloques: ", sb.SBlocksCount)
-		fmt.Println("Bloques libres: ", sb.SFreeBlocksCount)
-		fmt.Println("Inodos libres: ", sb.SFreeInodesCount)
-		fmt.Println("Primer bloque de datos: ", sb.SBmBlockStart)
-		fmt.Println("Tamano del inodo: ", sb.SInodeS)
-		fmt.Println("Numero magico: ", sb.SMagic)
-		fmt.Println("inicio de superbloque : ", sb.SBlockStart)
-		fmt.Println("inicio de bitmap de bloques : ", sb.SBmBlockStart)
-		fmt.Println("inicio de bitmap de inodos : ", sb.SBmInodeStart)
-		fmt.Println("posicion del primer inodo libre : ", sb.SFirstIno)
-		fmt.Println("posicion del primer bloque libre : ", sb.SFirstBlo)
-		//formattedDate := time.Unix(0, int64(binary.LittleEndian.Uint64(sb.SMtime[:]))*1000000).String()
-
-	*/
 
 	//LEEMOS LOS DATOS DEL SUPERBLOQUE Y LOS PONEMS EN GRAPHVIZ
 	dot := "digraph { graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"2\", splines=\"ortho\"];"
@@ -1113,8 +1391,39 @@ func ReporteSuperBlock(id string, ruta string, name string) {
 	dot += "</table>>];"
 	dot += "}"
 
+	var extension string
+
+	//quitamos comillas por si trae en path
+	path = strings.Replace(path, "\"", "", -1)
+
+	if strings.Contains(path, ".") {
+		exten := strings.Split(path, ".")
+		//guardamos la ruta sin la extension
+		path = exten[0]
+		fmt.Println("La extension es: " + exten[1])
+		if exten[1] == "jpg" {
+			extension = "jpg"
+
+		} else if exten[1] == "png" {
+			extension = "png"
+		} else if exten[1] == "pdf" {
+			extension = "pdf"
+		} else {
+			fmt.Println("Error: La extension del archivo no es valida")
+			return
+		}
+
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error al crear la carpeta:", err)
+			return
+		}
+	}
+
 	//Crear el archivo .dot
-	dotName := "Reportes/ReporteSuperBloque.dot"
+	dotName := path + ".dot"
 	archivoDot, err := os.Create(dotName)
 	if err != nil {
 		fmt.Println("Error al crear el archivo .dot: ", err)
@@ -1127,10 +1436,12 @@ func ReporteSuperBlock(id string, ruta string, name string) {
 		return
 	}
 	//Generar la imagen
-	cmd := exec.Command("dot", "-T", "jpg", dotName, "-o", "Reportes/ReporteSuperBloque.jpg")
+	cmd := exec.Command("dot", "-T", extension, dotName, "-o", path+"."+extension)
 	err = cmd.Run()
 	if err != nil {
 		fmt.Println("Error al generar la imagen: ", err)
 		return
 	}
+
+	fmt.Println("Reporte Super xBlock generado con exito")
 }
