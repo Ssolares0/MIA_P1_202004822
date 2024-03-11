@@ -1,6 +1,7 @@
 package Estructuras
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -81,6 +82,9 @@ func Analyze_Reportes(list_tokens []string) {
 		} else if name == "block" {
 			ReporteBlock(id, path, name)
 
+		} else if name == "bm_inode" {
+
+			ReporteBitmapInode(id, path, name)
 		} else {
 			fmt.Println("Error: El nombre del reporte es incorrecto")
 		}
@@ -1188,10 +1192,7 @@ func ReporteBlock(id string, path string, name string) {
 		if isFile {
 
 			// Moverse hacia atrás en el archivo
-			if _, err := archivo.Seek(-sb.SBlockS, io.SeekCurrent); err != nil {
-				fmt.Println("Error al buscar la posición en el archivo:", err)
-				return
-			}
+			archivo.Seek(-sb.SBlockS, io.SeekCurrent)
 
 			// Leer el bloque de archivo
 			if err := binary.Read(archivo, binary.LittleEndian, &fileB); err != nil {
@@ -1296,6 +1297,119 @@ func ReporteBlock(id string, path string, name string) {
 	}
 
 	fmt.Println("Reporte Block generado con exito")
+
+}
+
+func ReporteBitmapInode(id string, path string, name string) {
+	// Obtener el primer carácter
+	primerCaracter := id[0]
+
+	// Obtener el segundo carácter
+	segundoCaracter := id[1]
+
+	segundoNumero, err := strconv.Atoi(string(segundoCaracter))
+	if err != nil {
+		fmt.Println("Error al convertir el segundo carácter a entero:", err)
+		return
+	}
+
+	//Abrir el disco A
+	MountActual := MountList[segundoNumero-1]
+
+	//fmt.Println("El indice del mount es: ", MountActual)
+
+	archivo, err := os.Open("MIA/P1/" + string(primerCaracter) + ".dsk")
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+
+	var sb Superblock
+
+	_, err = archivo.Seek(MountActual.Start_part, 0)
+	if err != nil {
+		fmt.Println("Error al posicionar el puntero en el inicio de la partición: ", err)
+		return
+	}
+	err = binary.Read(archivo, binary.LittleEndian, &sb)
+	if err != nil {
+		fmt.Println("Error al leer el SuperBlock: ", err)
+		return
+	}
+	FileText := ""
+	var c byte = '1'
+
+	archivo.Seek(int64(sb.SBmInodeStart), 0)
+	if err != nil {
+		fmt.Println("Error al posicionar el puntero en el del bitmap inodos: ", err)
+		return
+	}
+	for i := 0; i <= int(sb.SBmBlockStart); i++ {
+		//leemos un byte
+		_, err = archivo.Read([]byte{c})
+
+		if err != nil {
+			fmt.Println("Error al leer el bitmap de inodos: ", err)
+			return
+		}
+
+		FileText += "\t" + string(c)
+		if i%20 == 0 {
+			FileText += "\t" + "0"
+		}
+
+	}
+	archivo.Close()
+	var extension string
+
+	//quitamos comillas por si trae en path
+	path = strings.Replace(path, "\"", "", -1)
+
+	if strings.Contains(path, ".") {
+		exten := strings.Split(path, ".")
+		//guardamos la ruta sin la extension
+		path = exten[0]
+		fmt.Println("La extension es: " + exten[1])
+		if exten[1] == "txt" {
+			extension = "txt"
+
+		} else {
+			fmt.Println("Error: La extension del archivo no es valida")
+			return
+		}
+
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error al crear la carpeta:", err)
+			return
+		}
+	}
+	//crear el txt
+	txtName := path + "." + extension
+	archivoTxt, err := os.Create(txtName)
+	if err != nil {
+		fmt.Println("Error al crear el archivo .txt: ", err)
+		return
+	}
+	defer archivoTxt.Close()
+
+	//escribimos en el txt
+	escribir := bufio.NewWriter(archivoTxt)
+
+	_, err = escribir.WriteString(FileText)
+	if err != nil {
+		fmt.Println("Error al escribir el archivo .txt: ", err)
+		return
+	}
+	escribir.Flush()
+	if err != nil {
+		fmt.Println("Error al escribir en el txt: ", err)
+		return
+
+	}
+	fmt.Println("Reporte Bitmap Inode generado con exito")
 
 }
 
@@ -1443,5 +1557,5 @@ func ReporteSuperBlock(id string, path string, name string) {
 		return
 	}
 
-	fmt.Println("Reporte Super xBlock generado con exito")
+	fmt.Println("Reporte Super Bloque generado con exito")
 }
