@@ -13,18 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unsafe"
 )
-
-type UserActive struct {
-	User     string
-	Password string
-	Id       string
-	Uid      int
-	Gid      int
-}
-
-var Logeado UserActive
 
 func Analyze(command string) {
 	fmt.Println(command)
@@ -729,7 +718,7 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 						fmt.Println("Ya existe una particion logica con ese nombre")
 						return
 					}
-					TempD = int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
+					TempD += int(ebr.EBR_SIZE) + 1 + binary.Size(EBR{})
 				}
 				if ebr.EBR_NEXT == 0 {
 					break
@@ -1348,7 +1337,7 @@ func Mkgrp(name string) {
 	}
 	sb := NewSuperblock()
 	archivo.Seek(int64(MountList[partition].Start_part), 0)
-	data := leerBytes(archivo, int(unsafe.Sizeof(Superblock{})))
+	data := leerBytes(archivo, int(binary.Size(Superblock{})))
 	bf := bytes.NewBuffer(data)
 	err = binary.Read(bf, binary.BigEndian, &sb)
 	if err != nil {
@@ -1357,8 +1346,8 @@ func Mkgrp(name string) {
 
 	}
 	inodo := NewInode()
-	archivo.Seek(int64(sb.SInodeStart)+int64(unsafe.Sizeof(Inode{})), 0)
-	data = leerBytes(archivo, int(unsafe.Sizeof(Inode{})))
+	archivo.Seek(int64(sb.SInodeStart)+int64(binary.Size(Inode{})), 0)
+	data = leerBytes(archivo, int(binary.Size(Inode{})))
 	bf = bytes.NewBuffer(data)
 	err = binary.Read(bf, binary.BigEndian, &inodo)
 	if err != nil {
@@ -1373,8 +1362,8 @@ func Mkgrp(name string) {
 			break
 
 		}
-		archivo.Seek(int64(sb.SBlockStart)+int64(unsafe.Sizeof(FolderBlock{}))+int64(unsafe.Sizeof(FileBlock{}))*int64(bloque-1), 0)
-		data = leerBytes(archivo, int(unsafe.Sizeof(FolderBlock{})))
+		archivo.Seek(int64(sb.SBlockStart)+int64(binary.Size(FolderBlock{}))+int64(binary.Size(FileBlock{}))*int64(bloque-1), 0)
+		data = leerBytes(archivo, int(binary.Size(FolderBlock{})))
 		bf = bytes.NewBuffer(data)
 		err = binary.Read(bf, binary.BigEndian, &barch)
 		if err != nil {
@@ -1395,6 +1384,8 @@ func Mkgrp(name string) {
 func Logged(user string, password string, id string) bool {
 	partition := VerificarPartMontada(id)
 
+	MountActual := MountList[partition]
+
 	if partition == -1 {
 		fmt.Println("La particion no esta montada")
 		return false
@@ -1408,88 +1399,120 @@ func Logged(user string, password string, id string) bool {
 
 	}
 	sb := NewSuperblock()
-	archivo.Seek(int64(MountList[partition].Start_part), 0)
-	data := leerBytes(archivo, int(unsafe.Sizeof(Superblock{})))
+	archivo.Seek(int64(MountActual.Start_part), 0)
+	data := leerBytes(archivo, int(binary.Size(Superblock{})))
 	bf := bytes.NewBuffer(data)
-	err = binary.Read(bf, binary.BigEndian, &sb)
+	err = binary.Read(bf, binary.LittleEndian, &sb)
 	if err != nil {
 		fmt.Println("Error al leer el superbloque: ", err)
 		return false
 
 	}
+
+	if !(sb.SFilesystemType == int64(2) || sb.SFilesystemType == int64(3)) {
+		fmt.Println("El sistema de archivos no es 2fs o 3fs, debe formatear primero")
+		return false
+
+	}
+
+	// buscamos primero el archivo /users.txt
+
+	numInode := FindFile("/users.txt", *MountActual, sb, archivo)
+
+	if numInode == -1 {
+		fmt.Println("No se encontro el archivo /users.txt")
+		return false
+
+	}
+	//leemos el archivo
+	var contenido string
+
 	inodo := NewInode()
-	archivo.Seek(int64(sb.SInodeStart)+int64(unsafe.Sizeof(Inode{})), 0)
-	data = leerBytes(archivo, int(unsafe.Sizeof(Inode{})))
-	bf = bytes.NewBuffer(data)
+	archivo.Seek(int64(sb.SInodeStart)+int64(numInode)+int64(binary.Size(Inode{})), 0)
+
 	err = binary.Read(bf, binary.BigEndian, &inodo)
 	if err != nil {
 		fmt.Println("Error al leer el inodo: ", err)
 		return false
 
 	}
-	var barch FileBlock
-	txt := ""
-	for bloque := 1; bloque < 16; bloque++ {
-		if inodo.IBlock[bloque-1] != -1 {
+
+	if inodo.IS == 0 {
+		fmt.Println("la particion no tiene nada")
+		return false
+
+	}
+	for _, i := range inodo.IBlock {
+
+		if i != -1 {
+			daspl2 := int64(sb.SBlockStart) + int64(i)*int64(binary.Size(FileBlock{}))
+			var block FileBlock
+			archivo.Seek(daspl2, 0)
+			err = binary.Read(archivo, binary.LittleEndian, &block)
+			if err != nil {
+				log.Fatal("error al leer el bloque")
+				return false
+			}
+			read := strings.TrimRight(string(block.BContent[:]), string(rune(0)))
+
+			var contFinal string
+			cantidadcaracteres := len(read)
+			if cantidadcaracteres < 64 {
+				contFinal = read
+			} else {
+				for i := 0; i < 64; i++ {
+					contFinal += string(read[i])
+					read = read[1:]
+				}
+			}
+			contenido += contFinal
+		}
+
+	}
+
+	if contenido == "" {
+		fmt.Println("El archivo /users.txt esta vacio")
+		return false
+
+	}
+
+	//dividimos el contenido del archivo
+	lines := strings.Split(contenido, "\n")
+
+	for _, line := range lines {
+		if len(line) == 0 {
+			break
+		}
+		if line[2] == 'U' || line[2] == 'u' {
+			//dividimos la linea
+			words := strings.Split(line, ",")
+			if words[3] == user && words[4] == password {
+				uid, _ := strconv.Atoi(words[0])
+				Logeado.Uid = int(uid)
+				Logeado.User = user
+				Logeado.Id = id
+				Logeado.Password = password
+				Logeado.Grp = (words[2])
+				break
+			}
+		}
+		if len(line) == 0 {
 			break
 
 		}
-		archivo.Seek(int64(sb.SBlockStart)+int64(unsafe.Sizeof(FolderBlock{}))+int64(unsafe.Sizeof(FileBlock{}))*int64(bloque-1), 0)
-		data = leerBytes(archivo, int(unsafe.Sizeof(FolderBlock{})))
-		bf = bytes.NewBuffer(data)
-		err = binary.Read(bf, binary.BigEndian, &barch)
-		if err != nil {
-			fmt.Println("Error al leer el bloque de carpeta: ", err)
-			return false
-
-		}
-		for i := 0; i < len(barch.BContent); i++ {
-			if barch.BContent[i] != 0 {
-				txt += string(barch.BContent[i])
-			}
-		}
-
-	}
-
-	vc := strings.Split(txt, "\n")
-	for i := 0; i < len(vc)-1; i++ {
-		line := vc[i]
-		if line[2] == 'U' || line[2] == 'u' {
-			inn := strings.Split(line, ",")
-			if Comparacion(inn[3], user) && Comparacion(inn[4], password) && inn[0] != "0" {
-				id_group := "0"
-				exist := false
-
-				for j := 0; j < len(vc)-1; j++ {
-					line2 := vc[j]
-					if (line2[2] == 'G' || line2[2] == 'g') && line2[0] != 0 {
-						ing := strings.Split(line2, ",")
-						if ing[2] == inn[2] {
-							id_group = ing[0]
-							exist = true
-							break
-
-						}
-					}
-				}
-				if !exist {
-					fmt.Println("El grupo no existe")
-					return false
-				}
-				fmt.Println("logeado correctamente")
-				fmt.Println("Bienvenido usuario" + user)
-				Logeado.Id = id
-				Logeado.User = user
-				Logeado.Password = password
-				Logeado.Gid, _ = strconv.Atoi(inn[0])
-				Logeado.Uid, _ = strconv.Atoi(id_group)
+		if line[2] == 'G' || line[2] == 'g' {
+			//dividimos la linea
+			words := strings.Split(line, ",")
+			if words[1] == Logeado.Grp {
+				gid, _ := strconv.Atoi(words[0])
+				Logeado.Gid = int(gid)
 
 			}
 
 		}
 	}
-	fmt.Println("No se encontro el usuario")
-	return false
+	fmt.Println("Se iniicio con exito en la particion: " + id + "Usuario: " + user)
+	return true
 }
 
 func LogOut() bool {
@@ -1512,6 +1535,67 @@ func ShowMount() {
 	}
 	fmt.Println("----------------------------------------------------------------------------------------------")
 
+}
+func FindFile(name string, mount MOUNT, sb Superblock, file *os.File) int {
+	splitruta := strings.Split(name, "/")
+	//buscamos el archivo
+	var newruta []string
+	for _, ru := range splitruta {
+		if ru != "" {
+			newruta = append(newruta, ru)
+		}
+
+	}
+	splitruta = newruta
+	inodo := NewInode()
+	file.Seek(int64(sb.SInodeStart), 0)
+	err := binary.Read(file, binary.LittleEndian, &inodo)
+	if err != nil {
+		log.Fatal("error al leer el inodo")
+		return -1
+	}
+	numInodo := FindIndiceInodo(inodo, splitruta, sb, file)
+	return numInodo
+}
+
+func FindIndiceInodo(inodo Inode, splitruta []string, sb Superblock, file *os.File) int {
+	count := 0
+	if len(splitruta) == 0 {
+		return count
+
+	}
+	actual := splitruta[0]
+	ruta := splitruta[1:]
+
+	for _, i := range inodo.IBlock {
+		if i != -1 {
+			despl := int64(sb.SBlockStart) + (int64(i) * int64(binary.Size(FileBlock{})))
+			file.Seek(despl, 0)
+			var fldblock FolderBlock
+			err := binary.Read(file, binary.LittleEndian, &fldblock)
+			if err != nil {
+				log.Fatal("error al leer el bloque")
+				return -1
+			}
+			for _, content := range fldblock.BContent {
+				if content.BInodo != -1 && strings.Contains(string(content.BName[:]), actual) {
+					if len(ruta) == 0 {
+						return int(content.BInodo)
+					}
+					nextInode := NewInode()
+					file.Seek(int64(sb.SInodeStart)+int64(content.BInodo*int64(binary.Size(Inode{}))), 0)
+					err := binary.Read(file, binary.LittleEndian, &nextInode)
+					if err != nil {
+						log.Fatal("error al leer el inodo 222")
+						return -1
+					}
+					return FindIndiceInodo(nextInode, ruta, sb, file)
+
+				}
+			}
+		}
+	}
+	return -1
 }
 func leerBytes(file *os.File, number int) []byte {
 	bytes := make([]byte, number) //array de bytes
