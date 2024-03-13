@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -70,6 +69,7 @@ func Analyze_Reportes(list_tokens []string) {
 		} else if name == "mbr" {
 
 			ReporteMBR(id, path, name)
+
 		} else if name == "sb" {
 
 			ReporteSuperBlock(id, path, name)
@@ -268,94 +268,26 @@ func ReporteMBR(id string, path string, name string) {
 		dot += "</td></tr>"
 	}
 	dot += "</table>>];"
-	dot += "}"
 
-	//obtenemos los valores de la ruta path
-
-	//quitamos comillas por si trae en path
-	path = strings.Replace(path, "\"", "", -1)
-
-	//separar la extension de la ruta
-
-	if strings.Contains(path, ".") {
-		exten := strings.Split(path, ".")
-		//guardamos la ruta sin la extension
-		path = exten[0]
-		fmt.Println("La extension es: " + exten[1])
-		if exten[1] == "jpg" {
-			extension = "jpg"
-
-		} else if exten[1] == "png" {
-			extension = "png"
-		} else if exten[1] == "pdf" {
-			extension = "pdf"
-		} else {
-			fmt.Println("Error: La extension del archivo no es valida")
-			return
-		}
-
-	}
-	// Verifica si la carpeta existe, y si no, la crea
-	if _, err := os.Stat(path + "." + extension); os.IsNotExist(err) {
-		err := os.MkdirAll(path, os.ModePerm)
-		if err != nil {
-			fmt.Println("Error al crear la carpeta:", err)
-			return
-		}
-	}
-
-	//Crear el archivo .dot
-	CrearGraphviz(path, dot, extension)
-}
-
-func ReporteEBR(id string, path string, name string) {
-
-	var extension string
-
-	//ABRIMOS EL EBR SI ES QUE SE UTILIZO
-	// Obtener el primer carácter
-	primerCaracter := id[0]
-	//pasar astring
-	letter := string(primerCaracter)
-	//Abrir el disco A
-	archivo, err := os.Open("MIA/P1/" + letter + ".dsk")
-	if err != nil {
-		fmt.Println("Error al abrir el disco: ", err)
-		return
-	}
-	defer archivo.Close()
-	var disk MBR
-	archivo.Seek(int64(0), 0)
-	err = binary.Read(archivo, binary.LittleEndian, &disk)
-	if err != nil {
-		fmt.Println("Error al leer el MBR del disco: ", err)
-		return
-	}
 	//LEEMOS LOS DATOS DEL eBR Y LOS PONEMS EN GRAPHVIZ
-	dot := "digraph { graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"2\", splines=\"ortho\"];"
-	dot += "node [shape=plain]"
-	dot += "rankdir=LR;"
 
-	dot += "Foo [label=<"
+	dot += "Foo2 [label=<"
 	dot += "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">"
 	dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Reporte del EBR</td></tr>"
 
 	if disk.MBR_PART1.PART_TYPE == [1]byte{'E'} && disk.MBR_PART1.PART_SIZE != 0 {
 		var ebr EBR
+		var count int = 1
 
-		archivo.Seek(int64(disk.MBR_PART1.PART_START), 0)
-		err = binary.Read(archivo, binary.LittleEndian, &ebr)
+		TempD := int64(disk.MBR_PART1.PART_START)
+		archivo.Seek(TempD, 0)
+		err := binary.Read(archivo, binary.LittleEndian, &ebr)
 		if err != nil {
-			fmt.Println("Error al leer el EBR del disco: ", err)
+			fmt.Println("Error al leer el EBR:", err)
 			return
 		}
-		var actualNode = 1
-
-		for {
-			//Leer el EBR
-
-			if ebr.EBR_NEXT != -1 || actualNode > 1 {
-
+		if ebr.EBR_SIZE != 0 {
+			for {
 				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
 
 				dot += "<tr><td>Part_name</td><td>"
@@ -385,47 +317,17 @@ func ReporteEBR(id string, path string, name string) {
 				dot += strconv.Itoa(int(ebr.EBR_NEXT))
 				dot += "</td></tr>"
 
-			} else {
-				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
-
-				dot += "<tr><td>Part_name</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>FIT</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>Part_status</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>Part_type</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>Inicio</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>Tamano</td><td>"
-
-				dot += "</td></tr>"
-				dot += "<tr><td>Next</td><td>"
-
-				dot += "</td></tr>"
+				//TempD += int64(ebr.EBR_SIZE) + 1 + int64(binary.Size(EBR{}))
+				archivo.Seek(ebr.EBR_NEXT, 0)
+				binary.Read(archivo, binary.LittleEndian, &ebr)
+				if ebr.EBR_SIZE == 0 {
+					fmt.Println("Se termino de leer el EBR")
+					break
+				}
+				count++
 
 			}
-
-			if ebr.EBR_NEXT == -1 {
-				break
-			}
-
-			binary.Read(archivo, binary.LittleEndian, &ebr)
-			if ebr.EBR_SIZE == 0 {
-				break
-			}
-
+			fmt.Println("El contador es: ", count)
 		}
 
 	}
@@ -489,21 +391,18 @@ func ReporteEBR(id string, path string, name string) {
 	if disk.MBR_PART3.PART_TYPE == [1]byte{'E'} && disk.MBR_PART3.PART_SIZE != 0 {
 		//Leer el EBR
 
-		ebr := NewEBR()
+		var ebr EBR
+		var count int = 1
 
-		archivo.Seek(int64(disk.MBR_PART3.PART_START), 0)
-		err = binary.Read(archivo, binary.LittleEndian, &ebr)
+		TempD := int64(disk.MBR_PART3.PART_START)
+		archivo.Seek(TempD, 0)
+		err := binary.Read(archivo, binary.LittleEndian, &ebr)
 		if err != nil {
-			fmt.Println("Error al leer el EBR 1 del disco: ", err)
+			fmt.Println("Error al leer el EBR:", err)
 			return
 		}
-		var actualNode = 1
-
-		for {
-			//Leer el EBR
-
-			if ebr.EBR_NEXT != -1 || actualNode > 1 {
-
+		if ebr.EBR_SIZE != 0 {
+			for {
 				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
 
 				dot += "<tr><td>Part_name</td><td>"
@@ -533,69 +432,33 @@ func ReporteEBR(id string, path string, name string) {
 				dot += strconv.Itoa(int(ebr.EBR_NEXT))
 				dot += "</td></tr>"
 
-			} else {
-				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
-
-				dot += "<tr><td>Part_name</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>FIT</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>Part_status</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>Part_type</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>Inicio</td><td>"
-
-				dot += "</td></tr>"
-
-				dot += "<tr><td>Tamano</td><td>"
-
-				dot += "</td></tr>"
-				dot += "<tr><td>Next</td><td>"
-
-				dot += "</td></tr>"
+				//TempD += int64(ebr.EBR_SIZE) + 1 + int64(binary.Size(EBR{}))
+				archivo.Seek(ebr.EBR_NEXT, 0)
+				binary.Read(archivo, binary.LittleEndian, &ebr)
+				if ebr.EBR_SIZE == 0 {
+					fmt.Println("Se termino de leer el EBR")
+					break
+				}
+				count++
 
 			}
-
-			if ebr.EBR_NEXT == -1 {
-				break
-			}
-
-			archivo.Seek(int64(ebr.EBR_NEXT), 0)
-			err = binary.Read(archivo, binary.LittleEndian, &ebr)
-			if err != nil {
-				fmt.Println("Error al leer el EBR del disco: ", err)
-				return
-			}
+			fmt.Println("El contador es: ", count)
 		}
 
 	}
 	if disk.MBR_PART4.PART_TYPE == [1]byte{'E'} && disk.MBR_PART4.PART_SIZE != 0 {
-		//Leer el EBR
+		var ebr EBR
+		var count int = 1
 
-		ebr := NewEBR()
-
-		archivo.Seek(int64(disk.MBR_PART4.PART_START), 0)
-		err = binary.Read(archivo, binary.LittleEndian, &ebr)
+		TempD := int64(disk.MBR_PART4.PART_START)
+		archivo.Seek(TempD, 0)
+		err := binary.Read(archivo, binary.LittleEndian, &ebr)
 		if err != nil {
-			fmt.Println("Error al leer el EBR del disco: ", err)
+			fmt.Println("Error al leer el EBR:", err)
 			return
 		}
-		var actualNode = 1
-
-		for {
-			//Leer el EBR
-
-			if ebr.EBR_NEXT != -1 || actualNode > 1 {
-
+		if ebr.EBR_SIZE != 0 {
+			for {
 				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
 
 				dot += "<tr><td>Part_name</td><td>"
@@ -625,48 +488,318 @@ func ReporteEBR(id string, path string, name string) {
 				dot += strconv.Itoa(int(ebr.EBR_NEXT))
 				dot += "</td></tr>"
 
-			} else {
+				//TempD += int64(ebr.EBR_SIZE) + 1 + int64(binary.Size(EBR{}))
+				archivo.Seek(ebr.EBR_NEXT, 0)
+				binary.Read(archivo, binary.LittleEndian, &ebr)
+				if ebr.EBR_SIZE == 0 {
+					fmt.Println("Se termino de leer el EBR")
+					break
+				}
+				count++
+
+			}
+			fmt.Println("El contador es: ", count)
+		}
+
+	}
+	dot += "</table>>];"
+	dot += "}"
+
+	//obtenemos los valores de la ruta path
+
+	//quitamos comillas por si trae en path
+	path = strings.Replace(path, "\"", "", -1)
+
+	//separar la extension de la ruta
+
+	if strings.Contains(path, ".") {
+		exten := strings.Split(path, ".")
+		//guardamos la ruta sin la extension
+		path = exten[0]
+		fmt.Println("La extension es: " + exten[1])
+		if exten[1] == "jpg" {
+			extension = "jpg"
+
+		} else if exten[1] == "png" {
+			extension = "png"
+		} else if exten[1] == "pdf" {
+			extension = "pdf"
+		} else {
+			fmt.Println("Error: La extension del archivo no es valida")
+			return
+		}
+
+	}
+	// Verifica si la carpeta existe, y si no, la crea
+	if _, err := os.Stat(path + "." + extension); os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error al crear la carpeta:", err)
+			return
+		}
+	}
+
+	//Crear el archivo .dot
+	CrearGraphviz(path, dot, extension)
+	ReporteEBR(id, path, "ebr")
+}
+
+func ReporteEBR(id string, path string, name string) {
+
+	var extension string
+
+	//ABRIMOS EL EBR SI ES QUE SE UTILIZO
+	// Obtener el primer carácter
+	primerCaracter := id[0]
+	//pasar astring
+	letter := string(primerCaracter)
+	//Abrir el disco A
+	archivo, err := os.Open("MIA/P1/" + letter + ".dsk")
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+	defer archivo.Close()
+	var disk MBR
+	archivo.Seek(int64(0), 0)
+	err = binary.Read(archivo, binary.LittleEndian, &disk)
+	if err != nil {
+		fmt.Println("Error al leer el MBR del disco: ", err)
+		return
+	}
+	//LEEMOS LOS DATOS DEL eBR Y LOS PONEMS EN GRAPHVIZ
+	dot := "digraph { graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"2\", splines=\"ortho\"];"
+	dot += "node [shape=plain]"
+	dot += "rankdir=LR;"
+
+	dot += "Foo [label=<"
+	dot += "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">"
+	dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Reporte del EBR</td></tr>"
+
+	if disk.MBR_PART1.PART_TYPE == [1]byte{'E'} && disk.MBR_PART1.PART_SIZE != 0 {
+		var ebr EBR
+		var count int = 1
+
+		TempD := int64(disk.MBR_PART1.PART_START)
+		archivo.Seek(TempD, 0)
+		err := binary.Read(archivo, binary.LittleEndian, &ebr)
+		if err != nil {
+			fmt.Println("Error al leer el EBR:", err)
+			return
+		}
+		if ebr.EBR_SIZE != 0 {
+			for {
 				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
 
 				dot += "<tr><td>Part_name</td><td>"
-
+				dot += string(ebr.EBR_NAME[:])
 				dot += "</td></tr>"
 
 				dot += "<tr><td>FIT</td><td>"
-
+				dot += string(ebr.EBR_FIT[:])
 				dot += "</td></tr>"
 
 				dot += "<tr><td>Part_status</td><td>"
-
+				dot += string(ebr.EBR_MOUNT[:])
 				dot += "</td></tr>"
 
 				dot += "<tr><td>Part_type</td><td>"
-
+				dot += "L"
 				dot += "</td></tr>"
 
 				dot += "<tr><td>Inicio</td><td>"
-
+				dot += strconv.Itoa(int(ebr.EBR_START))
 				dot += "</td></tr>"
 
 				dot += "<tr><td>Tamano</td><td>"
-
+				dot += strconv.Itoa(int(ebr.EBR_SIZE))
 				dot += "</td></tr>"
 				dot += "<tr><td>Next</td><td>"
-
+				dot += strconv.Itoa(int(ebr.EBR_NEXT))
 				dot += "</td></tr>"
 
-			}
+				//TempD += int64(ebr.EBR_SIZE) + 1 + int64(binary.Size(EBR{}))
+				archivo.Seek(ebr.EBR_NEXT, 0)
+				binary.Read(archivo, binary.LittleEndian, &ebr)
+				if ebr.EBR_SIZE == 0 {
+					fmt.Println("Se termino de leer el EBR")
+					break
+				}
+				count++
 
-			if ebr.EBR_NEXT == -1 {
-				break
 			}
+			fmt.Println("El contador es: ", count)
+		}
 
-			archivo.Seek(int64(ebr.EBR_NEXT), 0)
-			err = binary.Read(archivo, binary.LittleEndian, &ebr)
-			if err != nil {
-				fmt.Println("Error al leer el EBR del disco: ", err)
-				return
+	}
+
+	if disk.MBR_PART2.PART_TYPE == [1]byte{'E'} && disk.MBR_PART2.PART_SIZE != 0 {
+
+		var ebr EBR
+		var count int = 1
+
+		TempD := int64(disk.MBR_PART2.PART_START)
+		archivo.Seek(TempD, 0)
+		err := binary.Read(archivo, binary.LittleEndian, &ebr)
+		if err != nil {
+			fmt.Println("Error al leer el EBR:", err)
+			return
+		}
+		if ebr.EBR_SIZE != 0 {
+			for {
+				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
+
+				dot += "<tr><td>Part_name</td><td>"
+				dot += string(ebr.EBR_NAME[:])
+				dot += "</td></tr>"
+
+				dot += "<tr><td>FIT</td><td>"
+				dot += string(ebr.EBR_FIT[:])
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Part_status</td><td>"
+				dot += string(ebr.EBR_MOUNT[:])
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Part_type</td><td>"
+				dot += "L"
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Inicio</td><td>"
+				dot += strconv.Itoa(int(ebr.EBR_START))
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Tamano</td><td>"
+				dot += strconv.Itoa(int(ebr.EBR_SIZE))
+				dot += "</td></tr>"
+				dot += "<tr><td>Next</td><td>"
+				dot += strconv.Itoa(int(ebr.EBR_NEXT))
+				dot += "</td></tr>"
+
+				//TempD += int64(ebr.EBR_SIZE) + 1 + int64(binary.Size(EBR{}))
+				archivo.Seek(ebr.EBR_NEXT, 0)
+				binary.Read(archivo, binary.LittleEndian, &ebr)
+				if ebr.EBR_SIZE == 0 {
+					fmt.Println("Se termino de leer el EBR")
+					break
+				}
+				count++
+
 			}
+			fmt.Println("El contador es: ", count)
+		}
+	}
+	if disk.MBR_PART3.PART_TYPE == [1]byte{'E'} && disk.MBR_PART3.PART_SIZE != 0 {
+		//Leer el EBR
+
+		var ebr EBR
+		var count int = 1
+
+		TempD := int64(disk.MBR_PART3.PART_START)
+		archivo.Seek(TempD, 0)
+		err := binary.Read(archivo, binary.LittleEndian, &ebr)
+		if err != nil {
+			fmt.Println("Error al leer el EBR:", err)
+			return
+		}
+		if ebr.EBR_SIZE != 0 {
+			for {
+				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
+
+				dot += "<tr><td>Part_name</td><td>"
+				dot += string(ebr.EBR_NAME[:])
+				dot += "</td></tr>"
+
+				dot += "<tr><td>FIT</td><td>"
+				dot += string(ebr.EBR_FIT[:])
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Part_status</td><td>"
+				dot += string(ebr.EBR_MOUNT[:])
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Part_type</td><td>"
+				dot += "L"
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Inicio</td><td>"
+				dot += strconv.Itoa(int(ebr.EBR_START))
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Tamano</td><td>"
+				dot += strconv.Itoa(int(ebr.EBR_SIZE))
+				dot += "</td></tr>"
+				dot += "<tr><td>Next</td><td>"
+				dot += strconv.Itoa(int(ebr.EBR_NEXT))
+				dot += "</td></tr>"
+
+				//TempD += int64(ebr.EBR_SIZE) + 1 + int64(binary.Size(EBR{}))
+				archivo.Seek(ebr.EBR_NEXT, 0)
+				binary.Read(archivo, binary.LittleEndian, &ebr)
+				if ebr.EBR_SIZE == 0 {
+					fmt.Println("Se termino de leer el EBR")
+					break
+				}
+				count++
+
+			}
+			fmt.Println("El contador es: ", count)
+		}
+
+	}
+	if disk.MBR_PART4.PART_TYPE == [1]byte{'E'} && disk.MBR_PART4.PART_SIZE != 0 {
+		var ebr EBR
+		var count int = 1
+
+		TempD := int64(disk.MBR_PART4.PART_START)
+		archivo.Seek(TempD, 0)
+		err := binary.Read(archivo, binary.LittleEndian, &ebr)
+		if err != nil {
+			fmt.Println("Error al leer el EBR:", err)
+			return
+		}
+		if ebr.EBR_SIZE != 0 {
+			for {
+				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
+
+				dot += "<tr><td>Part_name</td><td>"
+				dot += string(ebr.EBR_NAME[:])
+				dot += "</td></tr>"
+
+				dot += "<tr><td>FIT</td><td>"
+				dot += string(ebr.EBR_FIT[:])
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Part_status</td><td>"
+				dot += string(ebr.EBR_MOUNT[:])
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Part_type</td><td>"
+				dot += "L"
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Inicio</td><td>"
+				dot += strconv.Itoa(int(ebr.EBR_START))
+				dot += "</td></tr>"
+
+				dot += "<tr><td>Tamano</td><td>"
+				dot += strconv.Itoa(int(ebr.EBR_SIZE))
+				dot += "</td></tr>"
+				dot += "<tr><td>Next</td><td>"
+				dot += strconv.Itoa(int(ebr.EBR_NEXT))
+				dot += "</td></tr>"
+
+				//TempD += int64(ebr.EBR_SIZE) + 1 + int64(binary.Size(EBR{}))
+				archivo.Seek(ebr.EBR_NEXT, 0)
+				binary.Read(archivo, binary.LittleEndian, &ebr)
+				if ebr.EBR_SIZE == 0 {
+					fmt.Println("Se termino de leer el EBR")
+					break
+				}
+				count++
+
+			}
+			fmt.Println("El contador es: ", count)
 		}
 
 	}
@@ -1029,6 +1162,14 @@ func ReporteInode(id string, path string, name string) {
 		return
 	}
 
+	//vemos si la particion esta montada
+	partition := VerificarPartMontada(id)
+
+	if partition == -1 {
+		fmt.Println("La particion no esta montada")
+		return
+
+	}
 	MountActual := MountList[segundoNumero-1]
 
 	//Abrir el disco A
@@ -1062,6 +1203,7 @@ func ReporteInode(id string, path string, name string) {
 	}
 
 	total_inodes := sb.SInodesCount - sb.SFreeInodesCount
+
 	//var inodoAnterior int = 0
 	for i := 0; i < int(total_inodes); i++ {
 		inode := NewInode()
@@ -1145,10 +1287,17 @@ func ReporteBlock(id string, path string, name string) {
 		return
 	}
 
-	//Abrir el disco A
+	//vemos si la particion esta montada
+	partition := VerificarPartMontada(id)
+
+	if partition == -1 {
+		fmt.Println("La particion no esta montada")
+		return
+
+	}
 	MountActual := MountList[segundoNumero-1]
 
-	//fmt.Println("El indice del mount es: ", MountActual)
+	//Abrir el disco A
 
 	archivo, err := os.Open("MIA/P1/" + string(primerCaracter) + ".dsk")
 	if err != nil {
@@ -1168,82 +1317,51 @@ func ReporteBlock(id string, path string, name string) {
 		fmt.Println("Error al leer el SuperBlock: ", err)
 		return
 	}
-	var graphvizString string
-	graphvizString += "digraph G {\n\trankdir=\"LR\"\n\tnode [shape=box]\n\tlabel = \"Bloques\""
+	bloqueanterior := 0
+	Dot := "digraph G {\n"
+	Direccionbloque := sb.SBlockStart
 
-	var folderB FolderBlock
-	var fileB FileBlock
-	var isFile bool
+	_, err = archivo.Seek(Direccionbloque, 0)
+	if err != nil {
+		fmt.Println("Error al posicionar el puntero en la dirección del bloque: ", err)
+		return
+	}
 
-	archivo.Seek(int64(sb.SBlockStart), 0)
-	totalBlocks := sb.SBlocksCount - sb.SFreeBlocksCount
-	for i := 0; i < int(totalBlocks); i++ {
-		err = binary.Read(archivo, binary.LittleEndian, &folderB)
+	total_bloques := sb.SBlockStart - sb.SFreeBlocksCount
+
+	var fldrblock FolderBlock
+	var fileblock FileBlock
+
+	//var inodoAnterior int = 0
+	for i := 0; i < int(total_bloques); i++ {
+
+		err = binary.Read(archivo, binary.LittleEndian, &fldrblock)
 		if err != nil {
-			fmt.Println("Error al leer el FolderBlock: ", err)
+			fmt.Println("Error al leer el Inodo: ", err)
 			return
 		}
+
 		for j := 0; j < 4; j++ {
-			if folderB.BContent[j].BInodo != 0 || folderB.BContent[j].BInodo > (sb.SBlockStart+sb.SBlocksCount) {
-				isFile = true
-				break
-			}
+			// Imprimir la información del inodo
+			Dot += "a" + strconv.Itoa(i) + "[shape=none, color=lightgrey, label=<\n"
+			Dot += "<TABLE cellspacing=\"3\" cellpadding=\"2\" style=\"rounded\">\n"
+			Dot += "<TR><TD>Inodo_" + strconv.Itoa(i) + "</TD><TD></TD></TR>\n"
+			Dot += "<TR><TD> i_uid: </TD><TD> " + string(fileblock.BContent[:]) + "</TD></TR>\n"
+			//imprimi
+			Dot += "</TABLE>>]; \n\n"
+		}
+
+		if i-1 >= 0 {
+			Dot += "a" + strconv.Itoa(bloqueanterior) + "-> a" + strconv.Itoa(i) + "\n\n"
 
 		}
-		if isFile {
 
-			// Moverse hacia atrás en el archivo
-			archivo.Seek(-sb.SBlockS, io.SeekCurrent)
-
-			// Leer el bloque de archivo
-			if err := binary.Read(archivo, binary.LittleEndian, &fileB); err != nil {
-				fmt.Println("Error al leer FileBlock:", err)
-				return
-			}
-
-			graphvizString += "\n\ta"
-			graphvizString += strconv.Itoa(i)
-			graphvizString += " [label=<\n\t\t<TABLE border=\"3\" cellspacing=\"5\" cellpadding=\"10\"  bgcolor=\"gray\">"
-			graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\"  bgcolor=\"lightblue\"><B>Bloque archivo "
-			graphvizString += strconv.Itoa(i + 1)
-			graphvizString += "</B></TD>\n\t\t\t</TR>"
-			graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\" bgcolor=\"white\">content</TD>\n\t\t\t</TR>"
-			graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\" bgcolor=\"white\">"
-			graphvizString += string(fileB.BContent[:])
-			graphvizString += "</TD>\n\t\t\t</TR>"
-		} else {
-			graphvizString += "\n\ta"
-			graphvizString += strconv.Itoa(i)
-			graphvizString += " [label=<\n\t\t<TABLE border=\"3\" cellspacing=\"5\" cellpadding=\"10\"  bgcolor=\"gray\">"
-			graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\"  bgcolor=\"lightblue\"><B>Bloque carpeta "
-			graphvizString += strconv.Itoa(i + 1)
-			graphvizString += "</B></TD>\n\t\t\t</TR>"
-			for j := 0; j < 4; j++ {
-				graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD border=\"2\" bgcolor=\"white\">b_inodo</TD>"
-				graphvizString += "\n\t\t\t<TD border=\"2\"  bgcolor=\"white\">"
-				graphvizString += strconv.Itoa(int(folderB.BContent[j].BInodo))
-				graphvizString += "</TD>\n\t\t\t</TR>"
-				if folderB.BContent[j].BInodo != -1 {
-					graphvizString += "\n\t\t\t<TR>\n\t\t\t<TD border=\"2\" bgcolor=\"white\">b_name</TD>"
-					graphvizString += "\n\t\t\t<TD border=\"2\"  bgcolor=\"white\">"
-					graphvizString += string(folderB.BContent[j].BName[:])
-					graphvizString += "</TD>\n\t\t\t</TR>"
-				}
-			}
-		}
-		graphvizString += "\n\t\t</TABLE>>];"
-		if i > 0 {
-			graphvizString += "\n\ta"
-			graphvizString += strconv.Itoa(i - 1)
-			graphvizString += " -> a"
-			graphvizString += strconv.Itoa(i)
-			graphvizString += ";"
-		}
-		isFile = false
+		bloqueanterior = i
 
 	}
-	graphvizString += "\n}"
-	archivo.Close()
+	Dot += "}"
+	Dot += "}"
+	defer archivo.Close()
 	var extension string
 
 	//quitamos comillas por si trae en path
@@ -1268,7 +1386,7 @@ func ReporteBlock(id string, path string, name string) {
 
 	}
 	// Verifica si la carpeta existe, y si no, la crea
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, err := os.Stat(path + "." + extension); os.IsNotExist(err) {
 		err := os.MkdirAll(path, os.ModePerm)
 		if err != nil {
 			fmt.Println("Error al crear la carpeta:", err)
@@ -1276,7 +1394,7 @@ func ReporteBlock(id string, path string, name string) {
 		}
 	}
 
-	CrearGraphviz(path, graphvizString, extension)
+	CrearGraphviz(path, Dot, extension)
 
 }
 

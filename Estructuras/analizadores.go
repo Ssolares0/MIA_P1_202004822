@@ -968,6 +968,60 @@ func Analyze_Unmount(list_tokens []string) {
 }
 
 func UnMount(id string) {
+
+	//Obtener el segundo carácter
+	segundoCaracter := id[1]
+	primerCaracter := id[0]
+
+	segundoNumero, err := strconv.Atoi(string(segundoCaracter))
+	if err != nil {
+		fmt.Println("Error al convertir el segundo carácter a entero:", err)
+		return
+	}
+
+	//Abrimos el disco
+	file, err := os.OpenFile("MIA/P1/"+string(primerCaracter)+".dsk", os.O_RDWR, 0777)
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+	defer file.Close()
+	//leemos el mbr
+	var disk MBR
+	file.Seek(int64(0), 0)
+	err = binary.Read(file, binary.LittleEndian, &disk)
+	if err != nil {
+		fmt.Println("Error al leer el MBR: ", err)
+		return
+	}
+
+	if disk.MBR_SIZE == 0 {
+		fmt.Println("El disco no es valido")
+
+		return
+
+	}
+
+	if segundoNumero == 1 {
+
+		//modificamos el estado de la particion
+		disk.MBR_PART1.PART_STATUS = [1]byte{'0'}
+
+	} else if segundoNumero == 2 {
+		//modificamos el estado de la particion
+		disk.MBR_PART2.PART_STATUS = [1]byte{'0'}
+	} else if segundoNumero == 3 {
+		//modificamos el estado de la particion
+		disk.MBR_PART3.PART_STATUS = [1]byte{'0'}
+	} else if segundoNumero == 4 {
+		//modificamos el estado de la particion
+		disk.MBR_PART4.PART_STATUS = [1]byte{'0'}
+
+	} else {
+		fmt.Println("No se encontro la particion")
+		return
+	}
+
 	//buscamos el id en la lista
 	for i, element := range MountList {
 		if string(element.ID_part[:]) == id {
@@ -1385,6 +1439,7 @@ func Logged(user string, password string, id string) bool {
 	partition := VerificarPartMontada(id)
 
 	MountActual := MountList[partition]
+	sb := NewSuperblock()
 
 	if partition == -1 {
 		fmt.Println("La particion no esta montada")
@@ -1398,11 +1453,11 @@ func Logged(user string, password string, id string) bool {
 		return false
 
 	}
-	sb := NewSuperblock()
+	defer archivo.Close()
+
 	archivo.Seek(int64(MountActual.Start_part), 0)
-	data := leerBytes(archivo, int(binary.Size(Superblock{})))
-	bf := bytes.NewBuffer(data)
-	err = binary.Read(bf, binary.LittleEndian, &sb)
+
+	err = binary.Read(archivo, binary.LittleEndian, &sb)
 	if err != nil {
 		fmt.Println("Error al leer el superbloque: ", err)
 		return false
@@ -1428,11 +1483,11 @@ func Logged(user string, password string, id string) bool {
 	var contenido string
 
 	inodo := NewInode()
-	archivo.Seek(int64(sb.SInodeStart)+int64(numInode)+int64(binary.Size(Inode{})), 0)
+	archivo.Seek(int64(sb.SInodeStart+int64(numInode)*int64(binary.Size(Inode{}))), 0)
 
-	err = binary.Read(bf, binary.BigEndian, &inodo)
+	err = binary.Read(archivo, binary.LittleEndian, &inodo)
 	if err != nil {
-		fmt.Println("Error al leer el inodo: ", err)
+		fmt.Println("Error al leer el inodo first: ", err)
 		return false
 
 	}
@@ -1511,13 +1566,18 @@ func Logged(user string, password string, id string) bool {
 
 		}
 	}
-	fmt.Println("Se iniicio con exito en la particion: " + id + "Usuario: " + user)
+	fmt.Println("Sesion iniciada con exito en la particion: " + id + "Usuario: " + user)
 	return true
 }
 
 func LogOut() bool {
-	Logeado = UserActive{}
-	return false
+	if Logeado.Uid == -1 {
+		fmt.Println("No hay sesion iniciada")
+		return false
+	}
+	Logeado = NewUserActual()
+	fmt.Println("-Sesion cerrada con exito-")
+	return true
 }
 
 func ShowMount() {
@@ -1612,5 +1672,6 @@ func Comparacion(name string, name2 string) bool {
 	if strings.ToUpper(name) == strings.ToUpper(name2) {
 		return true
 	}
+
 	return false
 }
