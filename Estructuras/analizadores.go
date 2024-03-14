@@ -1109,7 +1109,9 @@ func Mkfs(id string, type_ string, fs string) {
 		n = math.Floor(numerador / denominador)
 
 	} else {
-		n = 0
+		numerador := float64(part_size) - float64(binary.Size(Superblock{}))
+		denominador := float64(4 + binary.Size(Inode{}) + 3*binary.Size(FolderBlock{}) + binary.Size(Journal{}))
+		n = math.Floor(numerador / denominador)
 	}
 
 	//parte para crear superblock
@@ -1126,6 +1128,9 @@ func Mkfs(id string, type_ string, fs string) {
 
 	if fs == "2fs" {
 		Create2fs(sb, MountActual, int64(n))
+	}
+	if fs == "3fs" {
+		Create3fs(sb, MountActual, int64(n))
 	}
 
 }
@@ -1252,6 +1257,151 @@ func Create2fs(superblock Superblock, MountActual *MOUNT, n int64) {
 	binary.Write(file, binary.LittleEndian, &bloqueArchivo)
 
 	fmt.Println("Sistema de archivos 2FS creado con éxito en el disco: ")
+
+}
+
+func Create3fs(superblock Superblock, MountActual *MOUNT, n int64) {
+	superblock.SFilesystemType = 3
+	superblock.SBmInodeStart = (MountActual.Start_part) + int64(binary.Size(Superblock{})) + int64(binary.Size(Journal{}))
+	superblock.SBmBlockStart = (superblock.SBmInodeStart) + n
+	superblock.SInodeStart = (superblock.SBmBlockStart) + (3 * n)
+	superblock.SBlockStart = superblock.SInodeStart + int64(n*int64(binary.Size(Inode{})))
+	//Crear el bloque 0, inodo 0 y el usuario root
+	superblock.SFreeBlocksCount--
+	superblock.SFreeInodesCount--
+	superblock.SFreeBlocksCount--
+	superblock.SFreeInodesCount--
+
+	//Creacion Journaling
+	var journal Journal
+
+	startJournal := "mkdir"
+	rutaJournal := "/"
+	contenidoJournaling := "-"
+
+	fechaActual := time.Now()
+	fecha := fechaActual.Format("2006-01-02 15:04:05")
+
+	copy(journal.Journal[0].Tipo_operacion[:], startJournal)
+	copy(journal.Journal[0].Path[:], rutaJournal)
+	copy(journal.Journal[0].Contenido[:], contenidoJournaling)
+	copy(journal.Journal[0].Time[:], fecha)
+
+	startJournal = "mkfile"
+	rutaJournal = "/users.txt"
+	contenidoJournaling = "1,G,root\n1,U,root,root,123\n"
+
+	journal.Journal_size = 2
+	journal.Journal_last = 1
+
+	copy(journal.Journal[1].Tipo_operacion[:], startJournal)
+	copy(journal.Journal[1].Path[:], rutaJournal)
+	copy(journal.Journal[1].Contenido[:], contenidoJournaling)
+	copy(journal.Journal[1].Time[:], fecha)
+
+	//Creación del superbloque
+	//Abrir el archivo
+
+	file, err := os.OpenFile(MountActual.path_part, os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	file.Seek(int64(MountActual.Start_part), 0)
+	file.Seek(int64(MountActual.Start_part), 0)
+	binary.Write(file, binary.LittleEndian, &superblock)
+	binary.Write(file, binary.LittleEndian, &journal)
+
+	//Crear el bitmap de inodos
+	var llenar byte = 0
+	file.Seek(int64(superblock.SBmInodeStart), 0)
+	for i := 0; i < int(n); i++ {
+		binary.Write(file, binary.LittleEndian, &llenar)
+	}
+
+	//Crear el bitmap de bloques
+	file.Seek(int64(superblock.SBmBlockStart), 0)
+	for i := 0; i < int(n*3); i++ {
+		binary.Write(file, binary.LittleEndian, &llenar)
+	}
+
+	inodo0 := NewInode()
+	var bloque0 FileBlock
+
+	//Formatear inodos
+	file.Seek(int64(superblock.SInodeStart), 0)
+	for i := 0; i < int(n); i++ {
+		binary.Write(file, binary.LittleEndian, &inodo0)
+	}
+
+	//Formatear bloques
+	file.Seek(int64(superblock.SBlockStart), 0)
+	for i := 0; i < int(n*3); i++ {
+		binary.Write(file, binary.LittleEndian, &bloque0)
+	}
+
+	//Crear el inodo 0
+	inodo0.IUid = 1
+	inodo0.IGid = 1
+	fechaActual = time.Now()
+	fecha = fechaActual.Format("2006-01-02 15:04:05")
+	copy(inodo0.IAtime[:], fecha)
+	copy(inodo0.ICtime[:], fecha)
+	copy(inodo0.IMtime[:], fecha)
+	inodo0.IType = [1]byte{'0'}
+	inodo0.IPerm = 664
+	inodo0.IBlock[0] = 0
+
+	//Crear el bloque carpeta
+
+	var bloqueCarpeta FolderBlock
+	bloqueCarpeta.BContent[0].BInodo = 0
+	copy(bloqueCarpeta.BContent[0].BName[:], ".")
+	bloqueCarpeta.BContent[1].BInodo = 0
+	copy(bloqueCarpeta.BContent[1].BName[:], "..")
+	bloqueCarpeta.BContent[2].BInodo = 1
+	copy(bloqueCarpeta.BContent[2].BName[:], "users.txt")
+	bloqueCarpeta.BContent[3].BInodo = -1
+
+	data := "1,G,root\n1,U,root,root,123\n"
+
+	inodo1 := NewInode()
+	inodo1.IUid = 1
+	inodo1.IGid = 1
+	fechaActual = time.Now()
+	fecha = fechaActual.Format("2006-01-02 15:04:05")
+	copy(inodo1.IAtime[:], fecha)
+	copy(inodo1.ICtime[:], fecha)
+	copy(inodo1.IMtime[:], fecha)
+	inodo1.IType = [1]byte{'1'}
+	inodo1.IPerm = 664
+	inodo1.IBlock[0] = 1
+	inodo1.IS = int64(len(data)) + int64(binary.Size(FileBlock{}))
+
+	inodo0.IS = int64(inodo1.IS) + int64(binary.Size(FolderBlock{})) + int64(binary.Size(FolderBlock{}))
+
+	var bloqueArchivo FileBlock
+	copy(bloqueArchivo.BContent[:], data)
+
+	//Escribir el inodo en el archivo
+	file.Seek(int64(superblock.SBmInodeStart), 0)
+	var bit byte = 1
+	binary.Write(file, binary.LittleEndian, &bit)
+	binary.Write(file, binary.LittleEndian, &bit)
+
+	file.Seek(int64(superblock.SBmBlockStart), 0)
+	binary.Write(file, binary.LittleEndian, &bit)
+	binary.Write(file, binary.LittleEndian, &bit)
+
+	file.Seek(int64(superblock.SInodeStart), 0)
+	binary.Write(file, binary.LittleEndian, &inodo0)
+	binary.Write(file, binary.LittleEndian, &inodo1)
+
+	file.Seek(int64(superblock.SBlockStart), 0)
+	binary.Write(file, binary.LittleEndian, &bloqueCarpeta)
+	binary.Write(file, binary.LittleEndian, &bloqueArchivo)
+	fmt.Println("Sistema de archivos 3FS creado con éxito en el disco: ")
 
 }
 

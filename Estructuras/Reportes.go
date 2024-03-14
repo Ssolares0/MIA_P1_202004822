@@ -91,6 +91,9 @@ func Analyze_Reportes(list_tokens []string) {
 		} else if name == "tree" {
 			ReporteTree(id, path, name)
 
+		} else if name == "journaling" {
+			ReporteJournaling(id, path, name)
+
 		} else {
 			fmt.Println("Error: El nombre del reporte es incorrecto")
 		}
@@ -1941,6 +1944,113 @@ func ReporteSuperBlock(id string, path string, name string) {
 	CrearGraphviz(path, dot, extension)
 
 }
+
+func ReporteJournaling(id string, path string, name string) {
+	// Obtener el primer carácter
+	primerCaracter := id[0]
+
+	// Obtener el segundo carácter
+	segundoCaracter := id[1]
+
+	segundoNumero, err := strconv.Atoi(string(segundoCaracter))
+	if err != nil {
+		fmt.Println("Error al convertir el segundo carácter a entero:", err)
+		return
+	}
+
+	//vemos si la particion esta montada
+	partition := VerificarPartMontada(id)
+
+	if partition == -1 {
+		fmt.Println("La particion no esta montada")
+		return
+
+	}
+	MountActual := MountList[segundoNumero-1]
+
+	archivo, err := os.Open("MIA/P1/" + string(primerCaracter) + ".dsk")
+	if err != nil {
+		fmt.Println("Error al abrir el disco: ", err)
+		return
+	}
+	defer archivo.Close()
+	var Journaling Journal
+	fmt.Println("la posicion de inicio es: ", MountActual.Start_part)
+	archivo.Seek(int64(MountActual.Start_part), 0)
+	err = binary.Read(archivo, binary.LittleEndian, &Journaling)
+	if err != nil {
+		fmt.Println("Error al abrir el superblock: ", err)
+		return
+	}
+	dot := "digraph G {\n"
+	dot += "\tnode [shape=plaintext]\n"
+	dot += "\trankdir=LR\n"
+	dot += "\tJournalTable [\n"
+	dot += "\t\tlabel=<\n"
+	dot += "\t\t\t<table border='1' cellborder='1' cellspacing='0'>\n"
+
+	// Encabezados de la tabla
+	dot += "\t\t\t\t<tr><td colspan='4'><b>Journaling Table</b></td></tr>\n"
+	dot += "\t\t\t\t<tr><td><b>Operation</b></td><td><b>Path</b></td><td><b>Content</b></td><td><b>Date & Time</b></td></tr>\n"
+
+	for i := 0; i < int(Journaling.Journal_size); i++ {
+
+		dot += "\t\t\t\t<tr>"
+		dot += fmt.Sprintf("<td>%s</td>", trimNullBytes(Journaling.Journal[i].Tipo_operacion[:]))
+		dot += fmt.Sprintf("<td>%s</td>", trimNullBytes(Journaling.Journal[i].Path[:]))
+		dot += fmt.Sprintf("<td>%s</td>", trimNullBytes(Journaling.Journal[i].Contenido[:]))
+		dot += fmt.Sprintf("<td>%s</td>", trimNullBytes(Journaling.Journal[i].Time[:]))
+		dot += "</tr>\n"
+
+	}
+	dot += "\t\t\t</table>\n"
+	dot += "\t\t>\n"
+	dot += "\t];\n"
+	dot += "}"
+
+	var extension string
+
+	//quitamos comillas por si trae en path
+	path = strings.Replace(path, "\"", "", -1)
+
+	if strings.Contains(path, ".") {
+		exten := strings.Split(path, ".")
+		//guardamos la ruta sin la extension
+		path = exten[0]
+		fmt.Println("La extension es: " + exten[1])
+		if exten[1] == "jpg" {
+			extension = "jpg"
+
+		} else if exten[1] == "png" {
+			extension = "png"
+		} else if exten[1] == "pdf" {
+			extension = "pdf"
+		} else {
+			fmt.Println("Error: La extension del archivo no es valida")
+			return
+		}
+
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error al crear la carpeta:", err)
+			return
+		}
+	}
+
+	CrearGraphviz(path, dot, extension)
+
+	/*
+		//imprimimos el journaling
+
+		fmt.Println("la operacion journal es: " + strings.TrimRight(string(Journaling.Journal[0].Tipo_operacion[:]), string(rune(0))))
+		fmt.Println(" El contenido journal es: " + strings.TrimRight(string(Journaling.Journal[0].Contenido[:]), string(rune(0))))
+		fmt.Println("la ruta journal es: " + strings.TrimRight(string(Journaling.Journal[0].Path[:]), string(rune(0))))
+		fmt.Println("la fecha journal es: " + strings.TrimRight(string(Journaling.Journal[0].Time[:]), string(rune(0))))
+	*/
+}
+
 func CrearGraphviz(path string, dot string, extension string) {
 	//Crear el archivo .dot
 	dotName := path + ".dot"
@@ -1991,4 +2101,13 @@ func Creartxt(path string, FileText string, extension string) {
 	}
 	fmt.Println("Reporte Bitmap Inode generado con exito")
 
+}
+
+func trimNullBytes(data []byte) string {
+	for i := len(data) - 1; i >= 0; i-- {
+		if data[i] != 0 {
+			return string(data[:i+1])
+		}
+	}
+	return ""
 }

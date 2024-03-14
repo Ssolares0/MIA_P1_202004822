@@ -28,7 +28,7 @@ fdisk -size=1000 -driveletter=B -name=Particion1
 mount -driveletter=A -name=Particion1 #id=A122
 //unmount -id=A122
 
-mkfs -type=full -id=A122
+mkfs -type=full -id=A122 -fs=3fs
 login -user=root -pass=123 -id=A122
 
 rep -id=A122 -path=/Users/sebastiansolares/reports/reportembr.jpg -name=mbr
@@ -41,6 +41,7 @@ rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteBLOCK.jpg -name=block
 rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteBmInode.txt -name=bm_inode
 rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteBmBlock.txt -name=bm_bloc
 rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteTree.pdf -name=tree
+rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteJournaling.jpg -name=journaling
 
 //execute -path=/Users/sebastiansolares/reports/entrada
 
