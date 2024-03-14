@@ -1317,50 +1317,94 @@ func ReporteBlock(id string, path string, name string) {
 		fmt.Println("Error al leer el SuperBlock: ", err)
 		return
 	}
-	bloqueanterior := 0
-	Dot := "digraph G {\n"
-	Direccionbloque := sb.SBlockStart
-
-	_, err = archivo.Seek(Direccionbloque, 0)
+	var inodo Inode
+	_, err = archivo.Seek(sb.SInodeStart, 0)
 	if err != nil {
-		fmt.Println("Error al posicionar el puntero en la dirección del bloque: ", err)
+		fmt.Println("Error al posicionar el puntero en la dirección del Inodo: ", err)
 		return
 	}
-
-	total_bloques := sb.SBlockStart - sb.SFreeBlocksCount
-
-	var fldrblock FolderBlock
-	var fileblock FileBlock
-
-	//var inodoAnterior int = 0
-	for i := 0; i < int(total_bloques); i++ {
-
-		err = binary.Read(archivo, binary.LittleEndian, &fldrblock)
-		if err != nil {
-			fmt.Println("Error al leer el Inodo: ", err)
-			return
-		}
-
-		for j := 0; j < 4; j++ {
-			// Imprimir la información del inodo
-			Dot += "a" + strconv.Itoa(i) + "[shape=none, color=lightgrey, label=<\n"
-			Dot += "<TABLE cellspacing=\"3\" cellpadding=\"2\" style=\"rounded\">\n"
-			Dot += "<TR><TD>Inodo_" + strconv.Itoa(i) + "</TD><TD></TD></TR>\n"
-			Dot += "<TR><TD> i_uid: </TD><TD> " + string(fileblock.BContent[:]) + "</TD></TR>\n"
-			//imprimi
-			Dot += "</TABLE>>]; \n\n"
-		}
-
-		if i-1 >= 0 {
-			Dot += "a" + strconv.Itoa(bloqueanterior) + "-> a" + strconv.Itoa(i) + "\n\n"
-
-		}
-
-		bloqueanterior = i
+	err = binary.Read(archivo, binary.LittleEndian, &inodo)
+	if err != nil {
+		fmt.Println("Error al leer el Inodo: ", err)
+		return
 
 	}
-	Dot += "}"
-	Dot += "}"
+	//bloqueanterior := 0
+	count := 0
+	Dot := "digraph G {\n"
+
+	count = 0
+
+	for _, i := range inodo.IBlock {
+
+		if i != -1 {
+			Dot += "Bloque" + strconv.Itoa(int(i)) + "[label = <\n"
+			Dot += "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">\n"
+
+			DesplazamientoBloque := sb.SBlockStart + int64(int(i)*binary.Size(FolderBlock{}))
+			FolderBlock := NewFolderBlock()
+			_, err = archivo.Seek(DesplazamientoBloque, 0)
+			binary.Read(archivo, binary.LittleEndian, &FolderBlock)
+
+			if inodo.IType == [1]byte{'0'} {
+
+				Dot += "<tr><td colspan=\"2\" port='0' bgcolor=\"cadetblue1\">Bloque" + strconv.Itoa(int(i)) + "</td></tr>\n"
+				Contador2 := 0
+				for _, j := range FolderBlock.BContent {
+					nam := strings.TrimRight(string(j.BName[:]), string(rune(0)))
+					fmt.Println("El nombre del bloque es: ", nam)
+					if Contador2 == 0 {
+						nam = "."
+					}
+					if Contador2 == 1 {
+						nam = ".."
+					}
+					if j.BInodo == -1 {
+						nam = ""
+					}
+
+					//fmt.Println("Nombre: ", nam)
+					Dot += "<tr><td>" + nam + "</td><td port='" + strconv.Itoa(Contador2+1) + "'>" + strconv.Itoa(int(j.BInodo)) + "</td></tr>\n"
+
+					Contador2++
+
+				}
+				Dot += "</table>>];\n"
+				Contador2 = 0
+
+				for _, j := range FolderBlock.BContent {
+					if j.BInodo != -1 {
+						if j.BName[0] != '.' {
+							//Leer el inodo
+							Dot += "Bloque" + strconv.Itoa(int(i)) + ":" + strconv.Itoa(Contador2+1) + " -> Inodo" + strconv.Itoa(int(j.BInodo)) + ":0;\n"
+							//Buscar el inodo siguiente
+							DesplazamientoInodo := int(sb.SInodeStart) + (int(j.BInodo) * binary.Size(Inode{}))
+							inodoNext := NewInode()
+							archivo.Seek(int64(DesplazamientoInodo), 0)
+							binary.Read(archivo, binary.LittleEndian, &inodoNext)
+
+						}
+					}
+					Contador2++
+				}
+
+			} else {
+				file := FileBlock{}
+				archivo.Seek(int64(DesplazamientoBloque), 0)
+				binary.Read(archivo, binary.LittleEndian, &file)
+				Dot += "<tr><td colspan=\"2\" port='0' bgcolor=\"cadetblue1\">Bloque" + strconv.Itoa(int(i)) + "</td></tr>\n"
+				Dot += "<tr><td>" + strings.TrimRight(string(file.BContent[:]), string(rune(0))) + "</td></tr>\n"
+				Dot += "</table>>];\n"
+
+			}
+
+		}
+		count++
+
+	}
+
+	Dot += "\n}"
+
 	defer archivo.Close()
 	var extension string
 
@@ -1439,7 +1483,7 @@ func ReporteBitmapInode(id string, path string, name string) {
 	Direccion := sb.SBmInodeStart
 
 	for i := 0; i <= int(sb.SInodesCount); i++ {
-		var bit byte = 'A'
+		var bit byte = '0'
 
 		_, err := archivo.Seek(Direccion+int64(i), 0)
 		if err != nil {

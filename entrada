@@ -37,10 +37,12 @@ rep -id=A122 -path=/Users/sebastiansolares/reports/reporteDisk.pdf -name=disk
 //rep -id=A122 -path=/Users/sebastiansolares/reports/reportEBR.png -name=ebr
 rep -id=A122 -path=/Users/sebastiansolares/reports/reporteSB.jpg -name=sb
 rep -id=A122 -path=/Users/sebastiansolares/reports/reporteInode.jpg -name=inode
-//rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteBLOCK.jpg -name=block
+rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteBLOCK.jpg -name=block
 rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteBmInode.txt -name=bm_inode
 rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteBmBlock.txt -name=bm_bloc
 rep -id=A122 -path=/Users/sebastiansolares/reports/ReporteTree.pdf -name=tree
+
+//execute -path=/Users/sebastiansolares/reports/entrada
 
 
 

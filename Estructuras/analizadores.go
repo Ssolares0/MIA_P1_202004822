@@ -1374,6 +1374,17 @@ func Analyze_mkgrp(list_tokens []string) {
 }
 
 func Mkgrp(name string) {
+	//solo el usuario root puede acceder a este comando
+	if Logeado.Uid == -1 {
+		fmt.Println("No hay sesion iniciada")
+		return
+
+	}
+	if Logeado.User != "root" {
+		fmt.Println("Solo el usuario root puede crear grupos")
+		return
+
+	}
 	//buscamos el id en la lista
 	partition := VerificarPartMontada(Logeado.Id)
 
@@ -1382,8 +1393,10 @@ func Mkgrp(name string) {
 		return
 
 	}
+	MountActual := MountList[partition]
+
 	//abrimos el archivo
-	archivo, err := os.OpenFile(MountList[partition].path_part, os.O_RDWR, 0644)
+	archivo, err := os.OpenFile(MountActual.path_part, os.O_RDWR, 0644)
 	if err != nil {
 		fmt.Println("Error al abrir el archivo: ", err)
 		return
@@ -1391,9 +1404,7 @@ func Mkgrp(name string) {
 	}
 	sb := NewSuperblock()
 	archivo.Seek(int64(MountList[partition].Start_part), 0)
-	data := leerBytes(archivo, int(binary.Size(Superblock{})))
-	bf := bytes.NewBuffer(data)
-	err = binary.Read(bf, binary.BigEndian, &sb)
+	err = binary.Read(archivo, binary.LittleEndian, &sb)
 	if err != nil {
 		fmt.Println("Error al leer el superbloque: ", err)
 		return
@@ -1401,9 +1412,8 @@ func Mkgrp(name string) {
 	}
 	inodo := NewInode()
 	archivo.Seek(int64(sb.SInodeStart)+int64(binary.Size(Inode{})), 0)
-	data = leerBytes(archivo, int(binary.Size(Inode{})))
-	bf = bytes.NewBuffer(data)
-	err = binary.Read(bf, binary.BigEndian, &inodo)
+	err = binary.Read(archivo, binary.LittleEndian, &inodo)
+
 	if err != nil {
 		fmt.Println("Error al leer el inodo: ", err)
 		return
@@ -1417,9 +1427,8 @@ func Mkgrp(name string) {
 
 		}
 		archivo.Seek(int64(sb.SBlockStart)+int64(binary.Size(FolderBlock{}))+int64(binary.Size(FileBlock{}))*int64(bloque-1), 0)
-		data = leerBytes(archivo, int(binary.Size(FolderBlock{})))
-		bf = bytes.NewBuffer(data)
-		err = binary.Read(bf, binary.BigEndian, &barch)
+
+		err = binary.Read(archivo, binary.LittleEndian, &barch)
 		if err != nil {
 			fmt.Println("Error al leer el bloque de carpeta: ", err)
 			return
@@ -1436,6 +1445,12 @@ func Mkgrp(name string) {
 }
 
 func Logged(user string, password string, id string) bool {
+
+	//verificar si ya hay una sesion iniciada
+	if Logeado.Uid != -1 {
+		fmt.Println("Ya hay una sesion iniciada,cierre sesion primero")
+		return false
+	}
 	partition := VerificarPartMontada(id)
 
 	MountActual := MountList[partition]
