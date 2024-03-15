@@ -1335,76 +1335,65 @@ func ReporteBlock(id string, path string, name string) {
 
 	}
 	//bloqueanterior := 0
-	count := 0
+	// := 0
 	Dot := "digraph G {\n"
 
-	count = 0
+	totalbloques := sb.SBlocksCount - sb.SFreeBlocksCount
+	fldrblock := FolderBlock{}
+	FleeBlock := FileBlock{}
 
-	for _, i := range inodo.IBlock {
+	//count = 0
+	isfile := false
 
-		if i != -1 {
-			Dot += "Bloque" + strconv.Itoa(int(i)) + "[label = <\n"
-			Dot += "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">\n"
+	for i := 0; i < int(totalbloques); i++ {
 
-			DesplazamientoBloque := sb.SBlockStart + int64(int(i)*binary.Size(FolderBlock{}))
-			FolderBlock := NewFolderBlock()
-			_, err = archivo.Seek(DesplazamientoBloque, 0)
-			binary.Read(archivo, binary.LittleEndian, &FolderBlock)
+		err = binary.Read(archivo, binary.LittleEndian, &fldrblock)
+		if err != nil {
+			fmt.Println("Error al leer el Bloque: ", err)
+			return
+		}
+		for j := 0; j < 4; j++ {
+			if fldrblock.BContent[j].BInodo == 0 || fldrblock.BContent[j].BInodo > (sb.SBmInodeStart+sb.SBlocksCount) {
+				isfile = true
+			}
+		}
 
-			if inodo.IType == [1]byte{'0'} {
+		if isfile {
+			_, err = archivo.Seek(sb.SBlockStart+int64(i*binary.Size(FolderBlock{})), 0)
+			if err != nil {
+				fmt.Println("Error al posicionar el puntero en la dirección del Bloque: ", err)
+				return
+			}
+			err = binary.Read(archivo, binary.LittleEndian, &FleeBlock)
+			if err != nil {
+				fmt.Println("Error al leer el Bloque: ", err)
+				return
+			}
+			Dot += fmt.Sprintf("\n\ta%d [label=<\n\t\t<TABLE border=\"3\" cellspacing=\"5\" cellpadding=\"10\"  bgcolor=\"gray\">", i)
+			Dot += fmt.Sprintf("\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\"  bgcolor=\"lightblue\"><B>Bloque archivo %d</B></TD>\n\t\t\t</TR>", i+1)
+			Dot += "\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\" bgcolor=\"white\">content</TD>\n\t\t\t</TR>"
+			Dot += fmt.Sprintf("\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\" bgcolor=\"white\">%s</TD>\n\t\t\t</TR>", RemoverNulos(string(FleeBlock.BContent[:])))
+		} else {
+			Dot += fmt.Sprintf("\n\ta%d [label=<\n\t\t<TABLE border=\"3\" cellspacing=\"5\" cellpadding=\"10\"  bgcolor=\"gray\">", i)
+			Dot += fmt.Sprintf("\n\t\t\t<TR>\n\t\t\t<TD colspan=\"2\" border=\"2\"  bgcolor=\"lightblue\"><B>Bloque carpeta %d</B></TD>\n\t\t\t</TR>", i+1)
 
-				Dot += "<tr><td colspan=\"2\" port='0' bgcolor=\"cadetblue1\">Bloque" + strconv.Itoa(int(i)) + "</td></tr>\n"
-				Contador2 := 0
-				for _, j := range FolderBlock.BContent {
-					nam := strings.TrimRight(string(j.BName[:]), string(rune(0)))
-					fmt.Println("El nombre del bloque es: ", nam)
-					if Contador2 == 0 {
-						nam = "."
-					}
-					if Contador2 == 1 {
-						nam = ".."
-					}
-					if j.BInodo == -1 {
-						nam = ""
-					}
+			for j := 0; j < 4; j++ {
+				Dot += fmt.Sprintf("\n\t\t\t<TR>\n\t\t\t<TD border=\"2\" bgcolor=\"white\">b_inodo</TD>")
+				Dot += fmt.Sprintf("\n\t\t\t<TD border=\"2\"  bgcolor=\"white\">%d</TD>\n\t\t\t</TR>", RemoverNulos(string(fldrblock.BContent[j].BInodo)))
 
-					//fmt.Println("Nombre: ", nam)
-					Dot += "<tr><td>" + nam + "</td><td port='" + strconv.Itoa(Contador2+1) + "'>" + strconv.Itoa(int(j.BInodo)) + "</td></tr>\n"
-
-					Contador2++
-
+				if fldrblock.BContent[j].BInodo != -1 {
+					Dot += fmt.Sprintf("\n\t\t\t<TR>\n\t\t\t<TD border=\"2\" bgcolor=\"white\">b_name</TD>")
+					Dot += fmt.Sprintf("\n\t\t\t<TD border=\"2\"  bgcolor=\"white\">%s</TD>\n\t\t\t</TR>", (fldrblock.BContent[j].BName))
 				}
-				Dot += "</table>>];\n"
-				Contador2 = 0
-
-				for _, j := range FolderBlock.BContent {
-					if j.BInodo != -1 {
-						if j.BName[0] != '.' {
-							//Leer el inodo
-							Dot += "Bloque" + strconv.Itoa(int(i)) + ":" + strconv.Itoa(Contador2+1) + " -> Inodo" + strconv.Itoa(int(j.BInodo)) + ":0;\n"
-							//Buscar el inodo siguiente
-							DesplazamientoInodo := int(sb.SInodeStart) + (int(j.BInodo) * binary.Size(Inode{}))
-							inodoNext := NewInode()
-							archivo.Seek(int64(DesplazamientoInodo), 0)
-							binary.Read(archivo, binary.LittleEndian, &inodoNext)
-
-						}
-					}
-					Contador2++
-				}
-
-			} else {
-				file := FileBlock{}
-				archivo.Seek(int64(DesplazamientoBloque), 0)
-				binary.Read(archivo, binary.LittleEndian, &file)
-				Dot += "<tr><td colspan=\"2\" port='0' bgcolor=\"cadetblue1\">Bloque" + strconv.Itoa(int(i)) + "</td></tr>\n"
-				Dot += "<tr><td>" + strings.TrimRight(string(file.BContent[:]), string(rune(0))) + "</td></tr>\n"
-				Dot += "</table>>];\n"
-
 			}
 
 		}
-		count++
+		Dot += "\n\t\t</TABLE>>];\n"
+		if i > 0 {
+			Dot += (fmt.Sprintf("\n\ta%d -> a%d;", i-1, i))
+		}
+
+		isfile = false
 
 	}
 

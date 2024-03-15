@@ -32,52 +32,53 @@ func Analyze(command string) {
 
 		token_[0] = strings.Replace(token_[0], "#", "", -1)
 
-	}
+	} else {
+		//fmt.Println(token_[0])
+		//fmt.Println("token 0: ", token_[0])
+		switch token_[0] {
+		case "mkdisk":
+			//estamos aca
 
-	//fmt.Println(token_[0])
-	//fmt.Println("token 0: ", token_[0])
-	switch token_[0] {
-	case "mkdisk":
-		//estamos aca
+			Analyze_Mkdisk(token_[1:])
+		case "execute":
 
-		Analyze_Mkdisk(token_[1:])
-	case "execute":
+			Analyze_execute(token_[1:])
 
-		Analyze_execute(token_[1:])
+		case "rmdisk":
+			Analyze_Rmdisk(token_[1:])
+		case "fdisk":
+			Analyze_Fdisk(token_[1:])
+		case "mount":
+			Analyze_Mount(token_[1:])
+		case "unmount":
+			Analyze_Unmount(token_[1:])
 
-	case "rmdisk":
-		Analyze_Rmdisk(token_[1:])
-	case "fdisk":
-		Analyze_Fdisk(token_[1:])
-	case "mount":
-		Analyze_Mount(token_[1:])
-	case "unmount":
-		Analyze_Unmount(token_[1:])
+		case "mkfs":
+			Analyze_mkfs(token_[1:])
 
-	case "mkfs":
-		Analyze_mkfs(token_[1:])
+		case "login":
+			Analyze_Login(token_[1:])
+		case "logout":
+			Analyze_Logout(token_[1:])
 
-	case "login":
-		Analyze_Login(token_[1:])
-	case "logout":
-		Analyze_Logout(token_[1:])
+		case "showmount":
+			ShowMount()
 
-	case "showmount":
-		ShowMount()
+		case "rep":
+			Analyze_Reportes(token_[1:])
 
-	case "rep":
-		Analyze_Reportes(token_[1:])
+		case "pause":
+			fmt.Println("Presione enter para continuar")
+			fmt.Scanln()
 
-	case "pause":
-		fmt.Println("Presione enter para continuar")
-		fmt.Scanln()
+		case "exit":
+			//flagExit = true
+			fmt.Println("gracias por usar el programa")
 
-	case "exit":
-		//flagExit = true
-		fmt.Println("gracias por usar el programa")
+		default:
+			fmt.Println("error: el comando no existe")
 
-	default:
-		fmt.Println("error: el comando no existe")
+		}
 
 	}
 
@@ -1330,7 +1331,7 @@ func Mount(drive string, name string) {
 
 			fmt.Println("Se monto la particion1 con exito ID: ", Id)
 		}
-	} else if indicepart == '2' {
+	} else if indicepart == 2 {
 		if disk.MBR_PART2.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART2.PART_NAME[:]), name) {
 			//modificamos el estado de la particion
 			disk.MBR_PART2.PART_STATUS = [1]byte{'1'}
@@ -1355,7 +1356,7 @@ func Mount(drive string, name string) {
 			fmt.Println("No se encontro la particion")
 			return
 		}
-	} else if indicepart == '3' {
+	} else if indicepart == 3 {
 		if disk.MBR_PART3.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART3.PART_NAME[:]), name) {
 			//modificamos el estado de la particion
 			disk.MBR_PART3.PART_STATUS = [1]byte{'1'}
@@ -1382,7 +1383,7 @@ func Mount(drive string, name string) {
 			return
 		}
 
-	} else if indicepart == '4' {
+	} else if indicepart == 4 {
 		if disk.MBR_PART4.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART4.PART_NAME[:]), name) {
 			//modificamos el estado de la particion
 			disk.MBR_PART4.PART_STATUS = [1]byte{'1'}
