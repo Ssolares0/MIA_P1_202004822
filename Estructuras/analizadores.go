@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 func Analyze(command string) {
@@ -379,6 +380,9 @@ func CreateNewDisk(size_int int, unit string, fit string) {
 	} else if unit == "" && size_int != 0 {
 		size_bytes = int64(size_int * 1024 * 1024)
 
+	} else if unit == "b" && size_int != 0 {
+		size_bytes = int64(size_int)
+
 	} else {
 		fmt.Println("Error en el tamaño del disco")
 		return
@@ -523,6 +527,10 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 		} else if unit == "" && size_int != 0 {
 			size_bytes = int64(size_int * 1024)
 			unit = "K"
+		} else if unit == "b" && size_int != 0 {
+			size_bytes = int64(size_int)
+			unit = "B"
+
 		} else {
 			fmt.Println("Error en el tamaño del disco")
 			return
@@ -1212,7 +1220,8 @@ func Mount(drive string, name string) {
 	//estructura del ID: letra del disco+ correlativo de la particion + ultimos dos digitos del carnet 202004822
 	var Id string
 	var path string
-	var ultimoCaracter byte
+	//var ultimoCaracter byte
+	var indicepart int
 
 	if drive == "" {
 		fmt.Println("No se encontro el parametro -driveletter")
@@ -1229,19 +1238,28 @@ func Mount(drive string, name string) {
 	name_mod := name
 
 	// Convertir el string a un slice de bytes
-	bytes := []byte(name_mod)
+	//bytes := []byte(name_mod)
 
 	//guardamos toda la ruta
 	path = "MIA/P1/" + drive + ".dsk"
 
-	// Obtener el último carácter
-	if len(bytes) > 0 {
-		ultimoCaracter = bytes[len(bytes)-1]
-		fmt.Printf("El último carácter es: %c\n", ultimoCaracter)
-	} else {
-		fmt.Println("El nombre esta vacio.")
+	// Convertir el string a un slice de runes
+	runes := []rune(name_mod)
+
+	// Variables para guardar los dígitos
+	var digitos []rune
+	var ultimoCa string
+
+	// Obtener los dígitos al final del string
+	for i := len(runes) - 1; i >= 0; i-- {
+		if unicode.IsDigit(runes[i]) {
+			digitos = append([]rune{runes[i]}, digitos...)
+			ultimoCa = string(digitos)
+		} else {
+			break
+		}
 	}
-	ultimoCa := string(ultimoCaracter)
+
 	// Asignar valores al ID
 	Id = drive + ultimoCa + "22"
 	fmt.Println("El id es: ", Id)
@@ -1278,8 +1296,19 @@ func Mount(drive string, name string) {
 		}
 
 	}
+
+	if strings.Contains(string(disk.MBR_PART1.PART_NAME[:]), name) {
+		indicepart = 1
+
+	} else if strings.Contains(string(disk.MBR_PART2.PART_NAME[:]), name) {
+		indicepart = 2
+	} else if strings.Contains(string(disk.MBR_PART3.PART_NAME[:]), name) {
+		indicepart = 3
+	} else if strings.Contains(string(disk.MBR_PART4.PART_NAME[:]), name) {
+		indicepart = 4
+	}
 	//primero vemos que partcion se va montar con el correlativo del ID
-	if ultimoCaracter == '1' {
+	if indicepart == 1 {
 		if disk.MBR_PART1.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART1.PART_NAME[:]), name) {
 			//modificamos el estado de la particion
 			disk.MBR_PART1.PART_STATUS = [1]byte{'1'}
@@ -1301,7 +1330,7 @@ func Mount(drive string, name string) {
 
 			fmt.Println("Se monto la particion1 con exito ID: ", Id)
 		}
-	} else if ultimoCaracter == '2' {
+	} else if indicepart == '2' {
 		if disk.MBR_PART2.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART2.PART_NAME[:]), name) {
 			//modificamos el estado de la particion
 			disk.MBR_PART2.PART_STATUS = [1]byte{'1'}
@@ -1326,7 +1355,7 @@ func Mount(drive string, name string) {
 			fmt.Println("No se encontro la particion")
 			return
 		}
-	} else if ultimoCaracter == '3' {
+	} else if indicepart == '3' {
 		if disk.MBR_PART3.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART3.PART_NAME[:]), name) {
 			//modificamos el estado de la particion
 			disk.MBR_PART3.PART_STATUS = [1]byte{'1'}
@@ -1353,7 +1382,7 @@ func Mount(drive string, name string) {
 			return
 		}
 
-	} else if ultimoCaracter == '4' {
+	} else if indicepart == '4' {
 		if disk.MBR_PART4.PART_TYPE == [1]byte{'P'} && strings.Contains(string(disk.MBR_PART4.PART_NAME[:]), name) {
 			//modificamos el estado de la particion
 			disk.MBR_PART4.PART_STATUS = [1]byte{'1'}
