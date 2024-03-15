@@ -24,6 +24,8 @@ func Analyze_Reportes(list_tokens []string) {
 
 	for x := 0; x < len(list_tokens); x++ {
 		tokens := strings.Split(list_tokens[x], "=")
+		//pasar a minuscula
+		tokens[0] = strings.ToLower(tokens[0])
 		switch tokens[0] {
 		case "-name":
 			name = tokens[1]
@@ -151,10 +153,10 @@ func ReporteMBR(id string, path string, name string) {
 	if disk.MBR_PART1.PART_SIZE != 0 && disk.MBR_PART1.PART_TYPE == [1]byte{'P'} {
 		dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Particion 1 PRIMARIA</td></tr>"
 		dot += "<tr><td>Nombre</td><td>"
-		dot += string(disk.MBR_PART1.PART_NAME[:])
+		dot += RemoverNulos(string(disk.MBR_PART1.PART_NAME[:]))
 		dot += "</td></tr>"
 		dot += "<tr><td>Tipo</td><td>"
-		dot += string(disk.MBR_PART1.PART_TYPE[:])
+		dot += RemoverNulos(string(disk.MBR_PART1.PART_TYPE[:]))
 		dot += "</td></tr>"
 		dot += "<tr><td>Inicio</td><td>"
 		dot += strconv.Itoa(int(disk.MBR_PART1.PART_START))
@@ -166,7 +168,7 @@ func ReporteMBR(id string, path string, name string) {
 	} else if disk.MBR_PART1.PART_SIZE != 0 && disk.MBR_PART1.PART_TYPE == [1]byte{'E'} {
 		dot += "<tr><td colspan=\"2\" bgcolor=\"aquamarine1\">Particion 1 EXTENDIDA</td></tr>"
 		dot += "<tr><td>Nombre</td><td>"
-		dot += string(disk.MBR_PART1.PART_NAME[:])
+		dot += RemoverNulos(string(disk.MBR_PART1.PART_NAME[:]))
 		dot += "</td></tr>"
 		dot += "<tr><td>Tipo</td><td>"
 		dot += string(disk.MBR_PART1.PART_TYPE[:])
@@ -182,7 +184,7 @@ func ReporteMBR(id string, path string, name string) {
 	if disk.MBR_PART2.PART_SIZE != 0 && disk.MBR_PART2.PART_TYPE == [1]byte{'P'} {
 		dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Particion 2 PRIMARIA</td></tr>"
 		dot += "<tr><td>Nombre</td><td>"
-		dot += string(disk.MBR_PART2.PART_NAME[:])
+		dot += RemoverNulos(string(disk.MBR_PART2.PART_NAME[:]))
 		dot += "</td></tr>"
 		dot += "<tr><td>Tipo</td><td>"
 		dot += string(disk.MBR_PART2.PART_TYPE[:])
@@ -197,7 +199,7 @@ func ReporteMBR(id string, path string, name string) {
 	} else if disk.MBR_PART2.PART_SIZE != 0 && disk.MBR_PART2.PART_TYPE == [1]byte{'E'} {
 		dot += "<tr><td colspan=\"2\" bgcolor=\"aquamarine1\">Particion 2 EXTENDIDA</td></tr>"
 		dot += "<tr><td>Nombre</td><td>"
-		dot += string(disk.MBR_PART2.PART_NAME[:])
+		dot += RemoverNulos(string(disk.MBR_PART2.PART_NAME[:]))
 		dot += "</td></tr>"
 		dot += "<tr><td>Tipo</td><td>"
 		dot += string(disk.MBR_PART2.PART_TYPE[:])
@@ -213,7 +215,7 @@ func ReporteMBR(id string, path string, name string) {
 	if disk.MBR_PART3.PART_SIZE != 0 && disk.MBR_PART3.PART_TYPE == [1]byte{'P'} {
 		dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Particion 3 PRIMARIA</td></tr>"
 		dot += "<tr><td>Nombre</td><td>"
-		dot += string(disk.MBR_PART3.PART_NAME[:])
+		dot += RemoverNulos(string(disk.MBR_PART3.PART_NAME[:]))
 		dot += "</td></tr>"
 		dot += "<tr><td>Tipo</td><td>"
 		dot += string(disk.MBR_PART3.PART_TYPE[:])
@@ -228,7 +230,7 @@ func ReporteMBR(id string, path string, name string) {
 	} else if disk.MBR_PART3.PART_SIZE != 0 && disk.MBR_PART3.PART_TYPE == [1]byte{'E'} {
 		dot += "<tr><td colspan=\"2\" bgcolor=\"aquamarine1\">Particion 3 EXTENDIDA</td></tr>"
 		dot += "<tr><td>Nombre</td><td>"
-		dot += string(disk.MBR_PART3.PART_NAME[:])
+		dot += RemoverNulos(string(disk.MBR_PART3.PART_NAME[:]))
 		dot += "</td></tr>"
 		dot += "<tr><td>Tipo</td><td>"
 		dot += string(disk.MBR_PART3.PART_TYPE[:])
@@ -243,7 +245,7 @@ func ReporteMBR(id string, path string, name string) {
 	if disk.MBR_PART4.PART_SIZE != 0 && disk.MBR_PART4.PART_TYPE == [1]byte{'P'} {
 		dot += "<tr><td colspan=\"2\" bgcolor=\"lightblue\">Particion 4 PRIMARIA </td></tr>"
 		dot += "<tr><td>Nombre</td><td>"
-		dot += string(disk.MBR_PART4.PART_NAME[:])
+		dot += RemoverNulos(string(disk.MBR_PART4.PART_NAME[:]))
 		dot += "</td></tr>"
 		dot += "<tr><td>Tipo</td><td>"
 		dot += string(disk.MBR_PART4.PART_TYPE[:])
@@ -258,7 +260,7 @@ func ReporteMBR(id string, path string, name string) {
 	} else if disk.MBR_PART4.PART_SIZE != 0 && disk.MBR_PART4.PART_TYPE == [1]byte{'E'} {
 		dot += "<tr><td colspan=\"2\" bgcolor=\"aquamarine1\">Particion 4 EXTENDIDA</td></tr>"
 		dot += "<tr><td>Nombre</td><td>"
-		dot += string(disk.MBR_PART4.PART_NAME[:])
+		dot += RemoverNulos(string(disk.MBR_PART4.PART_NAME[:]))
 		dot += "</td></tr>"
 		dot += "<tr><td>Tipo</td><td>"
 		dot += string(disk.MBR_PART4.PART_TYPE[:])
@@ -294,7 +296,7 @@ func ReporteMBR(id string, path string, name string) {
 				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
 
 				dot += "<tr><td>Part_name</td><td>"
-				dot += string(ebr.EBR_NAME[:])
+				dot += RemoverNulos(string(ebr.EBR_NAME[:]))
 				dot += "</td></tr>"
 
 				dot += "<tr><td>FIT</td><td>"
@@ -352,7 +354,7 @@ func ReporteMBR(id string, path string, name string) {
 				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
 
 				dot += "<tr><td>Part_name</td><td>"
-				dot += string(ebr.EBR_NAME[:])
+				dot += RemoverNulos(string(ebr.EBR_NAME[:]))
 				dot += "</td></tr>"
 
 				dot += "<tr><td>FIT</td><td>"
@@ -409,7 +411,7 @@ func ReporteMBR(id string, path string, name string) {
 				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
 
 				dot += "<tr><td>Part_name</td><td>"
-				dot += string(ebr.EBR_NAME[:])
+				dot += RemoverNulos(string(ebr.EBR_NAME[:]))
 				dot += "</td></tr>"
 
 				dot += "<tr><td>FIT</td><td>"
@@ -465,7 +467,7 @@ func ReporteMBR(id string, path string, name string) {
 				dot += "<tr><td colspan=\"2\" bgcolor=\"darksalmon\">Particion logica</td></tr>"
 
 				dot += "<tr><td>Part_name</td><td>"
-				dot += string(ebr.EBR_NAME[:])
+				dot += RemoverNulos(string(ebr.EBR_NAME[:]))
 				dot += "</td></tr>"
 
 				dot += "<tr><td>FIT</td><td>"
@@ -2073,7 +2075,7 @@ func CrearGraphviz(path string, dot string, extension string) {
 		return
 	}
 
-	fmt.Println("Reporte Super Bloque generado con exito")
+	fmt.Println("Reporte Generado con exito")
 }
 
 func Creartxt(path string, FileText string, extension string) {
@@ -2110,4 +2112,15 @@ func trimNullBytes(data []byte) string {
 		}
 	}
 	return ""
+}
+func RemoverNulos(input string) string {
+	nullByte := byte(0)
+	for i := 0; i < len(input); i++ {
+		if input[i] == nullByte {
+			return input[:i]
+		} else if input[i] == 0 {
+			return input[:i]
+		}
+	}
+	return input
 }

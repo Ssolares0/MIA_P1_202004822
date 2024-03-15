@@ -92,7 +92,11 @@ func Analyze_Mkdisk(list_tokens []string) {
 	//vamos a separar el valor igual
 
 	for x := 0; x < len(list_tokens); x++ {
+		// Eliminar los comentarios si existen
+
 		tokens := strings.Split(list_tokens[x], "=")
+		//pasar a minuscula
+		tokens[0] = strings.ToLower(tokens[0])
 		switch tokens[0] {
 		case "-size":
 			size = tokens[1]
@@ -113,6 +117,7 @@ func Analyze_Mkdisk(list_tokens []string) {
 
 		default:
 			fmt.Println("no existe el parametro en mkdisk")
+
 		}
 
 	}
@@ -138,6 +143,7 @@ func Analyze_execute(list_tokens []string) {
 
 	for x := 0; x < len(list_tokens); x++ {
 		tokens := strings.Split(list_tokens[x], "=")
+		tokens[0] = strings.ToLower(tokens[0])
 		switch tokens[0] {
 		case "-path":
 			path = tokens[1]
@@ -186,6 +192,7 @@ func Analyze_Rmdisk(list_tokens []string) {
 
 	//separa el nombre del disco
 	tokens := strings.Split(list_tokens[0], "=")
+	tokens[0] = strings.ToLower(tokens[0])
 
 	if tokens[0] == "-driveletter" {
 		//preguntamos si quiere borra el disco
@@ -221,6 +228,7 @@ func Analyze_Fdisk(list_tokens []string) {
 
 	for x := 0; x < len(list_tokens); x++ {
 		tokens := strings.Split(list_tokens[x], "=")
+		tokens[0] = strings.ToLower(tokens[0])
 		switch tokens[0] {
 		case "-size":
 			size = tokens[1]
@@ -262,12 +270,21 @@ func Analyze_Fdisk(list_tokens []string) {
 		}
 
 	}
-	if size_int == 0 || size_int < 0 {
-
-		fmt.Println("no se encontro el parametro -size o el valor es negativo")
-		FlagObligatorio = false
-
+	if add_flag || delete_flag {
+		// Si alguno de los dos está presente, no es necesario verificar el tamaño
+		// Muestra una advertencia si el tamaño es cero o negativo
+		if size_int <= 0 {
+			fmt.Println("Advertencia: se recomienda proporcionar un valor válido para -size")
+		}
+	} else {
+		// Si ninguno de los dos está presente, verifica la presencia del argumento -size
+		if size_int <= 0 {
+			// Si size_int es cero o negativo y -add o -delete no están presentes, muestra un mensaje de error
+			fmt.Println("Error: se requiere el parámetro -size")
+			FlagObligatorio = false
+		}
 	}
+
 	if drive == "" {
 		fmt.Println("no se encontro el parametro -driveletter")
 		FlagObligatorio = false
@@ -293,6 +310,7 @@ func Analyze_Mount(list_tokens []string) {
 	//vamos a separar el valor igual
 	for x := 0; x < len(list_tokens); x++ {
 		tokens := strings.Split(list_tokens[x], "=")
+		tokens[0] = strings.ToLower(tokens[0])
 		switch tokens[0] {
 		case "-driveletter":
 			drive = tokens[1]
@@ -381,8 +399,8 @@ func CreateNewDisk(size_int int, unit string, fit string) {
 	}
 
 	//Si no existe el directorio Discos, entonces crearlo
-	if _, err := os.Stat("MIA/P1"); os.IsNotExist(err) {
-		err = os.Mkdir("MIA/P1", 0777)
+	if _, err := os.Stat("MIA/P1/"); os.IsNotExist(err) {
+		err = os.Mkdir("MIA/P1/", 0777)
 		if err != nil {
 			fmt.Println("Error al crear el directorio Discos: ", err)
 			return
@@ -395,7 +413,7 @@ func CreateNewDisk(size_int int, unit string, fit string) {
 		return
 	}
 
-	letter := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	letter := " ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 	//crear nombre del disco a partir de la cantidad de discos que hay en la carpeta
 	nameDisk := string(letter[len(archivos)])
@@ -487,52 +505,55 @@ func CreateNewDisk(size_int int, unit string, fit string) {
 }
 
 func CreateFdisk(size_int int, unit string, fit string, drive string, name string, type_ string, delete string, add string, add_flag bool, delete_flag bool) {
-	fmt.Println("Creando pARTICION...")
 
 	var size_bytes int64
 	var fit_mod string
 
-	if unit == "m" && size_int != 0 {
-		size_bytes = int64(size_int * 1024 * 1024)
-		unit = "M"
+	if !add_flag && !delete_flag {
+		// Las secciones de código dentro de este bloque solo se ejecutarán
+		// si ni -add ni -delete están presentes
+		if unit == "m" && size_int != 0 {
+			size_bytes = int64(size_int * 1024 * 1024)
+			unit = "M"
 
-	} else if unit == "k" && size_int != 0 {
-		size_bytes = int64(size_int * 1024)
-		unit = "K"
+		} else if unit == "k" && size_int != 0 {
+			size_bytes = int64(size_int * 1024)
+			unit = "K"
 
-	} else if unit == "" && size_int != 0 {
-		size_bytes = int64(size_int * 1024)
-		unit = "K"
-	} else {
-		fmt.Println("Error en el tamaño del disco")
-		return
-	}
-
-	if fit != "bf" && fit != "ff" && fit != "wf" {
-		fmt.Println("No SE ENCONTRO EL PARAMETRO -fit")
-		fit_mod = "W"
-
-	} else {
-		if fit == "bf" {
-			fit_mod = "B"
-		} else if fit == "ff" {
-			fit_mod = "F"
-		} else if fit == "wf" {
-			fit_mod = "W"
+		} else if unit == "" && size_int != 0 {
+			size_bytes = int64(size_int * 1024)
+			unit = "K"
+		} else {
+			fmt.Println("Error en el tamaño del disco")
+			return
 		}
-	}
 
-	if type_ != "p" && type_ != "e" && type_ != "l" {
-		fmt.Println("No SE ENCONTRO EL PARAMETRO -type")
-		type_ = "P"
+		if fit != "bf" && fit != "ff" && fit != "wf" {
+			fmt.Println("No SE ENCONTRO EL PARAMETRO -fit")
+			fit_mod = "W"
 
-	} else {
-		if type_ == "p" {
+		} else {
+			if fit == "bf" {
+				fit_mod = "B"
+			} else if fit == "ff" {
+				fit_mod = "F"
+			} else if fit == "wf" {
+				fit_mod = "W"
+			}
+		}
+
+		if type_ != "p" && type_ != "e" && type_ != "l" {
+			fmt.Println("No SE ENCONTRO EL PARAMETRO -type")
 			type_ = "P"
-		} else if type_ == "e" {
-			type_ = "E"
-		} else if type_ == "l" {
-			type_ = "L"
+
+		} else {
+			if type_ == "p" {
+				type_ = "P"
+			} else if type_ == "e" {
+				type_ = "E"
+			} else if type_ == "l" {
+				type_ = "L"
+			}
 		}
 	}
 
@@ -547,12 +568,14 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 	//pasamos a entero el valor de add
 	var add_int int
 	if add_flag {
+
 		var err error
 		add_int, err = strconv.Atoi(add)
 		if err != nil {
 			fmt.Println("Error al convertir el valor de add, el parametro no es valido")
 			return
 		}
+
 		if add_int <= 0 {
 			fmt.Println("como el parametro -add es negativo restamos el tamano de la particion")
 
@@ -754,6 +777,433 @@ func CreateFdisk(size_int int, unit string, fit string, drive string, name strin
 			return
 
 		}
+	} else if add_int != 0 {
+		var indicePart int
+		if strings.Contains(string(disk.MBR_PART1.PART_NAME[:]), name) {
+			indicePart = 1
+		}
+		if strings.Contains(string(disk.MBR_PART2.PART_NAME[:]), name) {
+			indicePart = 2
+		}
+		if strings.Contains(string(disk.MBR_PART3.PART_NAME[:]), name) {
+			indicePart = 3
+		}
+		if strings.Contains(string(disk.MBR_PART4.PART_NAME[:]), name) {
+			indicePart = 4
+		}
+		if indicePart != 0 {
+			var intSize int
+			if disk.MBR_PART1.PART_NAME != [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'} {
+				intSize += int(disk.MBR_PART1.PART_SIZE)
+
+			}
+			if disk.MBR_PART2.PART_NAME != [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'} {
+				intSize += int(disk.MBR_PART2.PART_SIZE)
+			}
+			if disk.MBR_PART3.PART_NAME != [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'} {
+				intSize += int(disk.MBR_PART3.PART_SIZE)
+
+			}
+			if disk.MBR_PART4.PART_NAME != [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'} {
+				intSize += int(disk.MBR_PART4.PART_SIZE)
+			}
+			if indicePart == 1 {
+				add_intmod := 0
+				particion := disk.MBR_PART1
+				intSize -= int(particion.PART_SIZE)
+				//pasar a mayusculas
+				unit = strings.ToUpper(unit)
+				if unit == "K" {
+					add_intmod = add_int * 1024
+				} else if unit == "M" {
+					add_intmod = add_int * 1024 * 1024
+				} else {
+					add_intmod = add_int
+				}
+				particion.PART_SIZE += int64(add_intmod)
+				if particion.PART_SIZE <= 0 {
+					fmt.Println("El tamano de la particion es negativo")
+					return
+				}
+				if intSize+int(particion.PART_SIZE) <= int(disk.MBR_SIZE) {
+					Desplazamiento := int(particion.PART_START) + int(particion.PART_SIZE)
+					disk.MBR_PART1 = particion
+					file.Seek(0, 0)
+					binary.Write(file, binary.LittleEndian, &disk)
+					file.Seek(int64(Desplazamiento), 0)
+					binary.Write(file, binary.LittleEndian, &particion)
+					fmt.Println("Se aumento el tamano de la particion con exito!!!")
+					defer file.Close()
+				} else {
+					fmt.Println("No hay espacio suficiente para aumentar la particion")
+					return
+				}
+
+			}
+			if indicePart == 2 {
+				add_intmod := 0
+				particion := disk.MBR_PART2
+				intSize -= int(particion.PART_SIZE)
+				//pasar a mayusculas
+				unit = strings.ToUpper(unit)
+				if unit == "K" {
+					add_intmod = add_int * 1024
+				} else if unit == "M" {
+					add_intmod = add_int * 1024 * 1024
+				} else {
+					add_intmod = add_int
+				}
+				particion.PART_SIZE += int64(add_intmod)
+				if particion.PART_SIZE <= 0 {
+					fmt.Println("El tamano de la particion es negativo")
+					return
+				}
+				if intSize+int(particion.PART_SIZE) <= int(disk.MBR_SIZE) {
+					Desplazamiento := int(particion.PART_START) + int(particion.PART_SIZE)
+					disk.MBR_PART2 = particion
+					file.Seek(0, 0)
+					binary.Write(file, binary.LittleEndian, &disk)
+					file.Seek(int64(Desplazamiento), 0)
+					binary.Write(file, binary.LittleEndian, &particion)
+					fmt.Println("Se aumento el tamano de la particion con exito!!!")
+					defer file.Close()
+				} else {
+					fmt.Println("No hay espacio suficiente para aumentar la particion")
+					return
+				}
+
+			}
+			if indicePart == 3 {
+				add_intmod := 0
+				particion := disk.MBR_PART3
+				intSize -= int(particion.PART_SIZE)
+				//pasar a mayusculas
+				unit = strings.ToUpper(unit)
+				if unit == "K" {
+					add_intmod = add_int * 1024
+				} else if unit == "M" {
+					add_intmod = add_int * 1024 * 1024
+				} else {
+					add_intmod = add_int
+				}
+				particion.PART_SIZE += int64(add_intmod)
+				if particion.PART_SIZE <= 0 {
+					fmt.Println("El tamano de la particion es negativo")
+					return
+				}
+				if intSize+int(particion.PART_SIZE) <= int(disk.MBR_SIZE) {
+					Desplazamiento := int(particion.PART_START) + int(particion.PART_SIZE)
+					disk.MBR_PART3 = particion
+					file.Seek(0, 0)
+					binary.Write(file, binary.LittleEndian, &disk)
+					file.Seek(int64(Desplazamiento), 0)
+					binary.Write(file, binary.LittleEndian, &particion)
+					fmt.Println("Se aumento el tamano de la particion con exito!!!")
+					defer file.Close()
+				} else {
+					fmt.Println("No hay espacio suficiente para aumentar la particion")
+					return
+				}
+
+			}
+			if indicePart == 4 {
+				add_intmod := 0
+				particion := disk.MBR_PART4
+				intSize -= int(particion.PART_SIZE)
+				//pasar a mayusculas
+				unit = strings.ToUpper(unit)
+				if unit == "K" {
+					add_intmod = add_int * 1024
+				} else if unit == "M" {
+					add_intmod = add_int * 1024 * 1024
+				} else {
+					add_intmod = add_int
+				}
+				particion.PART_SIZE += int64(add_intmod)
+				if particion.PART_SIZE <= 0 {
+					fmt.Println("El tamano de la particion es negativo")
+					return
+				}
+				if intSize+int(particion.PART_SIZE) <= int(disk.MBR_SIZE) {
+					Desplazamiento := int(particion.PART_START) + int(particion.PART_SIZE)
+					disk.MBR_PART4 = particion
+					file.Seek(0, 0)
+					binary.Write(file, binary.LittleEndian, &disk)
+					file.Seek(int64(Desplazamiento), 0)
+					binary.Write(file, binary.LittleEndian, &particion)
+					fmt.Println("Se aumento el tamano de la particion con exito!!!")
+					defer file.Close()
+				} else {
+					fmt.Println("No hay espacio suficiente para aumentar la particion")
+					return
+				}
+
+			}
+
+		} else {
+			fmt.Println("No existe una particion con ese nombre, buscaremos en extendidas")
+			var particionExt PARTITIONS
+			indicePart := 0
+			if disk.MBR_PART1.PART_TYPE == [1]byte{'E'} {
+				particionExt = disk.MBR_PART1
+				indicePart = 1
+			} else if disk.MBR_PART2.PART_TYPE == [1]byte{'E'} {
+				particionExt = disk.MBR_PART2
+				indicePart = 2
+			} else if disk.MBR_PART3.PART_TYPE == [1]byte{'E'} {
+				particionExt = disk.MBR_PART3
+				indicePart = 3
+			} else if disk.MBR_PART4.PART_TYPE == [1]byte{'E'} {
+				particionExt = disk.MBR_PART4
+				indicePart = 4
+			}
+			if indicePart == 0 {
+				fmt.Println("No existe una particion extendida")
+				return
+			}
+			var ebr EBR
+			tempDesp := int(particionExt.PART_START)
+			var size int = 0
+			for {
+				file.Seek(int64(tempDesp), 0)
+				binary.Read(file, binary.LittleEndian, &ebr)
+				if err != nil {
+					fmt.Println("Error al leer el EBR: ", err)
+					return
+				}
+				if ebr.EBR_SIZE != 0 {
+					add_intmod := 0
+					size += int(ebr.EBR_SIZE)
+
+					if strings.Contains(string(ebr.EBR_NAME[:]), name) {
+						fmt.Println("se encontro la logica")
+						size -= int(ebr.EBR_SIZE)
+						//pasar a mayusculas
+						unit = strings.ToUpper(unit)
+						if unit == "K" {
+							add_intmod = add_int * 1024
+						}
+						if unit == "M" {
+							add_intmod = add_int * 1024 * 1024
+						} else {
+							add_intmod = add_int
+						}
+						ebr.EBR_SIZE += int64(add_intmod)
+						if ebr.EBR_SIZE <= 0 {
+							fmt.Println("El tamano de la particion es negativo")
+						}
+						if size+int(ebr.EBR_SIZE) <= int(disk.MBR_SIZE) {
+							Desplazamiento := int(ebr.EBR_START) + int(ebr.EBR_SIZE)
+							file.Seek(int64(tempDesp), 0)
+							binary.Write(file, binary.LittleEndian, &ebr)
+							file.Seek(int64(Desplazamiento), 0)
+							binary.Write(file, binary.LittleEndian, &ebr)
+							fmt.Println("Se modifico el tamano de la particion con exito!!!")
+							defer file.Close()
+							return
+						} else {
+							fmt.Println("No hay espacio suficiente para aumentar la particion")
+							return
+						}
+						break
+
+					}
+					tempDesp = int(ebr.EBR_SIZE) + binary.Size(EBR{}) + 1
+
+				} else {
+					break
+				}
+
+			}
+
+		}
+
+	} else {
+		var delete = strings.ToLower(delete)
+		if delete != "full" {
+			fmt.Println("No se encontro el parametro -delete")
+			return
+
+		}
+		//verificamos si quiere eliminar
+		if Confirmacion("Esta seguro que desea eliminar la particion") {
+
+			//eliminamos la particion
+			var indicePart int
+			if strings.Contains(string(disk.MBR_PART1.PART_NAME[:]), name) {
+				indicePart = 1
+			}
+			if strings.Contains(string(disk.MBR_PART2.PART_NAME[:]), name) {
+				indicePart = 2
+			}
+			if strings.Contains(string(disk.MBR_PART3.PART_NAME[:]), name) {
+				indicePart = 3
+			}
+			if strings.Contains(string(disk.MBR_PART4.PART_NAME[:]), name) {
+				indicePart = 4
+			}
+			if indicePart != 0 {
+				var particionEliminar PARTITIONS
+				//var particion PARTITIONS
+				if indicePart == 1 {
+					particionEliminar = disk.MBR_PART1
+					disk.MBR_PART1.PART_STATUS = [1]byte{'0'}
+					disk.MBR_PART1.PART_TYPE = [1]byte{'0'}
+					disk.MBR_PART1.PART_FIT = [1]byte{'0'}
+					disk.MBR_PART1.PART_START = 0
+					disk.MBR_PART1.PART_SIZE = 0
+					disk.MBR_PART1.PART_NAME = [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
+					disk.MBR_PART1.PART_ID = [4]byte{'0', '0', '0', '0'}
+					file.Seek(particionEliminar.PART_START, 0)
+					var vacio byte = 0
+					for i := 0; i < int(particionEliminar.PART_SIZE); i++ {
+						binary.Write(file, binary.LittleEndian, &vacio)
+					}
+					file.Seek(0, 0)
+					binary.Write(file, binary.LittleEndian, &disk)
+					fmt.Println("Se elimino la particion con exito!!!")
+				} else if indicePart == 2 {
+					particionEliminar = disk.MBR_PART2
+					disk.MBR_PART2.PART_STATUS = [1]byte{'0'}
+					disk.MBR_PART2.PART_TYPE = [1]byte{'0'}
+					disk.MBR_PART2.PART_FIT = [1]byte{'0'}
+					disk.MBR_PART2.PART_START = 0
+					disk.MBR_PART2.PART_SIZE = 0
+					disk.MBR_PART2.PART_NAME = [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
+					disk.MBR_PART2.PART_ID = [4]byte{'0', '0', '0', '0'}
+					file.Seek(particionEliminar.PART_START, 0)
+					var vacio byte = 0
+					for i := 0; i < int(particionEliminar.PART_SIZE); i++ {
+						binary.Write(file, binary.LittleEndian, &vacio)
+					}
+					file.Seek(0, 0)
+					binary.Write(file, binary.LittleEndian, &disk)
+					fmt.Println("Se elimino la particion con exito!!!")
+
+				} else if indicePart == 3 {
+					particionEliminar = disk.MBR_PART3
+					disk.MBR_PART3.PART_STATUS = [1]byte{'0'}
+					disk.MBR_PART3.PART_TYPE = [1]byte{'0'}
+					disk.MBR_PART3.PART_FIT = [1]byte{'0'}
+					disk.MBR_PART3.PART_START = 0
+					disk.MBR_PART3.PART_SIZE = 0
+					disk.MBR_PART3.PART_NAME = [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
+					disk.MBR_PART3.PART_ID = [4]byte{'0', '0', '0', '0'}
+					file.Seek(particionEliminar.PART_START, 0)
+					var vacio byte = 0
+					for i := 0; i < int(particionEliminar.PART_SIZE); i++ {
+						binary.Write(file, binary.LittleEndian, &vacio)
+					}
+					file.Seek(0, 0)
+					binary.Write(file, binary.LittleEndian, &disk)
+					fmt.Println("Se elimino la particion con exito!!!")
+
+				} else if indicePart == 4 {
+					particionEliminar = disk.MBR_PART4
+					disk.MBR_PART4.PART_STATUS = [1]byte{'0'}
+					disk.MBR_PART4.PART_TYPE = [1]byte{'0'}
+					disk.MBR_PART4.PART_FIT = [1]byte{'0'}
+					disk.MBR_PART4.PART_START = 0
+					disk.MBR_PART4.PART_SIZE = 0
+					disk.MBR_PART4.PART_NAME = [16]byte{'~', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'}
+					file.Seek(particionEliminar.PART_START, 0)
+					var vacio byte = 0
+					for i := 0; i < int(particionEliminar.PART_SIZE); i++ {
+						binary.Write(file, binary.LittleEndian, &vacio)
+					}
+					file.Seek(0, 0)
+					binary.Write(file, binary.LittleEndian, &disk)
+					fmt.Println("Se elimino la particion con exito!!!")
+				}
+
+			} else {
+				var partiticionext PARTITIONS
+				var indicePart int
+				if disk.MBR_PART1.PART_TYPE == [1]byte{'E'} {
+					partiticionext = disk.MBR_PART1
+					indicePart = 1
+				} else if disk.MBR_PART2.PART_TYPE == [1]byte{'E'} {
+					partiticionext = disk.MBR_PART2
+					indicePart = 2
+				} else if disk.MBR_PART3.PART_TYPE == [1]byte{'E'} {
+					partiticionext = disk.MBR_PART3
+					indicePart = 3
+				} else if disk.MBR_PART4.PART_TYPE == [1]byte{'E'} {
+					partiticionext = disk.MBR_PART4
+					indicePart = 4
+				}
+				if indicePart == 0 {
+					fmt.Println("No existe una particion extendida")
+					return
+				}
+				var ebr EBR
+				tempDesp := int(partiticionext.PART_START)
+				boolencontrado := false
+				for {
+					file.Seek(int64(tempDesp), 0)
+					binary.Read(file, binary.LittleEndian, &ebr)
+					if err != nil {
+						fmt.Println("Error al leer el EBR: ", err)
+						return
+					}
+					if ebr.EBR_SIZE != 0 {
+						if strings.Contains(string(ebr.EBR_NAME[:]), name) {
+							boolencontrado = true
+							break
+						}
+						tempDesp += int(ebr.EBR_SIZE) + binary.Size(EBR{}) + 1
+					} else {
+						break
+					}
+				}
+				if boolencontrado {
+					despaux := tempDesp
+					tempDesp += int(ebr.EBR_SIZE) + binary.Size(EBR{}) + 1
+					file.Seek(int64(tempDesp), 0)
+					err := binary.Read(file, binary.LittleEndian, &ebr)
+					if err != nil {
+						fmt.Println("Error al leer el EBR: ", err)
+						return
+					}
+					for {
+						file.Seek(int64(despaux), 0)
+						err := binary.Write(file, binary.LittleEndian, &ebr)
+						if err != nil {
+							fmt.Println("Error al escribir el EBR: ", err)
+							return
+						}
+						despaux = tempDesp
+						tempDesp += int(ebr.EBR_SIZE) + binary.Size(EBR{}) + 1
+						file.Seek(int64(tempDesp), 0)
+						err = binary.Read(file, binary.LittleEndian, &ebr)
+						if err != nil {
+							fmt.Println("Error al leer el EBR: ", err)
+							return
+						}
+						if ebr.EBR_SIZE == 0 {
+							break
+						}
+					}
+					vacio := byte(0)
+					file.Seek(int64(despaux), 0)
+					for i := 0; i < binary.Size(EBR{}); i++ {
+						err := binary.Write(file, binary.LittleEndian, &vacio)
+						if err != nil {
+							fmt.Println("Error al escribir el EBR: ", err)
+							return
+						}
+					}
+					fmt.Println("Se elimino la particion con exito!!!")
+					defer file.Close()
+					return
+
+				} else {
+					fmt.Println("No se encontro la particion logica")
+					return
+				}
+
+			}
+		}
 	}
 
 }
@@ -943,6 +1393,7 @@ func Analyze_Unmount(list_tokens []string) {
 	//vamos a separar el valor igual
 	for x := 0; x < len(list_tokens); x++ {
 		tokens := strings.Split(list_tokens[x], "=")
+		tokens[0] = strings.ToLower(tokens[0])
 		switch tokens[0] {
 		case "-id":
 			id = tokens[1]
@@ -1046,7 +1497,9 @@ func Analyze_mkfs(list_tokens []string) {
 
 	//vamos a separar el valor igual
 	for x := 0; x < len(list_tokens); x++ {
+
 		tokens := strings.Split(list_tokens[x], "=")
+		tokens[0] = strings.ToLower(tokens[0])
 		switch tokens[0] {
 		case "-id":
 			id = tokens[1]
@@ -1443,6 +1896,7 @@ func Analyze_Login(list_tokens []string) {
 	//vamos a separar el valor igual
 	for x := 0; x < len(list_tokens); x++ {
 		tokens := strings.Split(list_tokens[x], "=")
+		tokens[0] = strings.ToLower(tokens[0])
 		switch tokens[0] {
 		case "-user":
 			user = tokens[1]
@@ -1498,6 +1952,7 @@ func Analyze_mkgrp(list_tokens []string) {
 	//vamos a separar el valor igual
 	for x := 0; x < len(list_tokens); x++ {
 		tokens := strings.Split(list_tokens[x], "=")
+		tokens[0] = strings.ToLower(tokens[0])
 		switch tokens[0] {
 		case "-name":
 			name = tokens[1]
